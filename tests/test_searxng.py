@@ -8,11 +8,14 @@ from seekrelay import (
     ConfigurationError,
     ProviderError,
     ProviderUnavailableError,
+    RateLimitError,
     SearchQuery,
     SearXNGProvider,
+    SeekRelay,
 )
+from seekrelay.providers.searxng import SEARXNG_SUSPENDED_RETRY_AFTER
 
-from .conftest import Recorder
+from .conftest import FakeClock, FakeProvider, FakeSleep, Recorder
 
 RESULTS = {
     "query": "q",
@@ -124,6 +127,72 @@ async def test_empty_with_unresponsive_engines_is_unavailable() -> None:
     rec = Recorder(httpx.Response(200, json=body))
     with pytest.raises(ProviderUnavailableError, match=r"google \(CAPTCHA\)"):
         await provider(rec).search(SearchQuery("q"))
+
+
+BLOCKED = {
+    "results": [],
+    # Shapes seen on a live instance (docs/LIVE_CHECK.md).
+    "unresponsive_engines": [
+        ["brave", "Suspended: too many requests"],
+        ["duckduckgo", "CAPTCHA"],
+        ["google", "access denied"],
+    ],
+}
+
+
+async def test_all_engines_blocked_is_a_rate_limit() -> None:
+    rec = Recorder(httpx.Response(200, json=BLOCKED))
+    with pytest.raises(RateLimitError, match=r"brave \(Suspended: too many requests\)") as info:
+        await provider(rec).search(SearchQuery("q"))
+    assert info.value.retry_after == SEARXNG_SUSPENDED_RETRY_AFTER
+    assert info.value.status_code is None
+
+
+@pytest.mark.parametrize(
+    ("unresponsive", "expected"),
+    [
+        ([["google cse", "Suspended: too many requests"]], RateLimitError),
+        # Seen live: a crashed engine next to a suspended one still means "come back later".
+        (
+            [["duckduckgo", "unexpected crash"], ["google cse", "Suspended: too many requests"]],
+            RateLimitError,
+        ),
+        ([["duckduckgo", "unexpected crash"]], ProviderUnavailableError),
+        (
+            [["brave", "Suspended: too many requests"], ["bing", "timeout"]],
+            ProviderUnavailableError,
+        ),
+        ([["bing"]], ProviderUnavailableError),
+    ],
+)
+async def test_unresponsive_engines_classification(
+    unresponsive: list[list[str]], expected: type[Exception]
+) -> None:
+    rec = Recorder(httpx.Response(200, json={"results": [], "unresponsive_engines": unresponsive}))
+    with pytest.raises(expected):
+        await provider(rec).search(SearchQuery("q"))
+
+
+async def test_blocked_instance_is_skipped_until_suspension_ends(
+    clock: FakeClock, sleep: FakeSleep
+) -> None:
+    rec = Recorder(httpx.Response(200, json=BLOCKED))
+    backup = FakeProvider("backup", ["https://example.com/"])
+    relay = SeekRelay([provider(rec), backup], cache_ttl=None, clock=clock, sleep=sleep)
+
+    response = await relay.search("q")
+    assert response.provider == "backup"
+    assert response.attempts[0].error == "RateLimitError"
+    assert len(rec.requests) == 1  # not retried
+    assert sleep.delays == []
+
+    response = await relay.search("q2")
+    assert len(rec.requests) == 1  # skipped while the engines are suspended
+    assert response.attempts[0].error == "Cooldown"
+
+    clock.advance(SEARXNG_SUSPENDED_RETRY_AFTER + 1)
+    await relay.search("q3")
+    assert len(rec.requests) == 2
 
 
 async def test_genuinely_empty_result() -> None:

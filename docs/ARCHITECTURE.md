@@ -90,8 +90,8 @@ the relay does with it:
 
 | Exception | Typical cause | `retryable` | `fallback` | Cooldown |
 |---|---|:-:|:-:|:-:|
-| `ProviderUnavailableError` | timeout, connection or other HTTP-client error, HTTP 408/5xx, Tavily 434, SearXNG upstream engines all failing | yes | yes | no |
-| `RateLimitError` | HTTP 429 (`retry_after` parsed from `Retry-After` / `X-RateLimit-Reset`) | yes | yes | no |
+| `ProviderUnavailableError` | timeout, connection or other HTTP-client error, HTTP 408/5xx, Tavily 434, SearXNG with no results while upstream engines time out or fail | yes | yes | no |
+| `RateLimitError` | HTTP 429 (`retry_after` parsed from `Retry-After` / `X-RateLimit-Reset`); SearXNG with no results while its upstream engines are suspended or behind a CAPTCHA (`retry_after` 180 s) | yes | yes | for `retry_after` seconds, if longer than `max_delay` |
 | `QuotaExceededError` | Tavily 432/433, HTTP 402, Brave 429 with an exhausted plan (`QUOTA_LIMITED`) | no | yes | yes |
 | `AuthenticationError` | HTTP 401/403, SearXNG JSON disabled | no | yes | yes |
 | `ResponseFormatError` | 2xx with an unexpected payload, undecodable body | no | yes | no |
@@ -126,7 +126,8 @@ trade-off is acceptable.
   (`base_delay * 2^(n-1)`, capped by `max_delay`, +/- jitter).
 * A `Retry-After` shorter than `max_delay` is honoured exactly. A longer one is not
   waited for; the relay falls back immediately, because an agent waiting a minute is
-  worse than an answer from the next provider.
+  worse than an answer from the next provider, and skips that provider for `retry_after`
+  seconds (unless `cooldown_seconds=0`), because asking earlier only costs a round trip.
 * Auth and quota errors are never retried and put the provider into cooldown
   (`cooldown_seconds`, default 300 s), so a month of exhausted credits does not cost a
   failed round trip on every request.

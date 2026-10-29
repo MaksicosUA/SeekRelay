@@ -16,6 +16,7 @@ from ..errors import (
     AuthenticationError,
     ConfigurationError,
     ProviderUnavailableError,
+    RateLimitError,
     ResponseFormatError,
 )
 from ..models import (
@@ -29,7 +30,18 @@ from ..models import (
 )
 from .base import SearchProvider
 
-__all__ = ["SearXNGProvider"]
+__all__ = ["SEARXNG_SUSPENDED_RETRY_AFTER", "SearXNGProvider"]
+
+SEARXNG_SUSPENDED_RETRY_AFTER = 180.0
+"""Seconds to skip an instance that cannot answer until an engine suspension ends.
+
+SearXNG's default ``search.suspended_times`` keeps blocked engines out for 180 s ("too
+many requests", "access denied") up to 3600 s (CAPTCHA). The shortest is used, so the
+instance is tried again as soon as it may work.
+"""
+
+# Reasons in ``unresponsive_engines`` that mean "blocked for minutes", not "slow right now".
+_BLOCKED_REASONS = ("suspended", "captcha", "too many requests", "access denied")
 
 
 def _as_float(value: Any) -> float | None:
@@ -39,6 +51,17 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
+def _instance_blocked(unresponsive: Sequence[tuple[str, str]]) -> bool:
+    """True if no engine can answer before a suspension ends: at least one engine is
+    suspended, rate-limited or behind a CAPTCHA and every other one crashed (a live
+    instance reported ``duckduckgo (unexpected crash)`` next to suspended engines).
+    Timeouts and other errors may clear on a retry, so they keep this False.
+    """
+    reasons = [reason.lower() for _, reason in unresponsive]
+    blocked = [any(marker in r for marker in _BLOCKED_REASONS) for r in reasons]
+    return any(blocked) and all(b or "crash" in r for b, r in zip(blocked, reasons, strict=True))
+
+
 class SearXNGProvider(SearchProvider):
     """Search through a SearXNG instance's JSON API.
 
@@ -46,9 +69,12 @@ class SearXNGProvider(SearchProvider):
     and then strictly on the client side.
 
     If the instance answers with zero results while some upstream engines were
-    unresponsive (CAPTCHA, timeouts), the provider raises
-    :class:`ProviderUnavailableError` so the relay can fall back, instead of
-    returning a misleading empty result.
+    unresponsive, the provider raises an error so the relay can fall back, instead of
+    returning a misleading empty result: :class:`RateLimitError` with
+    ``retry_after=SEARXNG_SUSPENDED_RETRY_AFTER`` when the engines are suspended,
+    rate-limited or behind a CAPTCHA (the relay then skips the instance for that long),
+    otherwise :class:`ProviderUnavailableError` (timeouts and other transient errors,
+    retried).
 
     Args:
         base_url: Instance root, e.g. ``http://127.0.0.1:8888``.
@@ -156,9 +182,19 @@ class SearXNGProvider(SearchProvider):
         if not results:
             unresponsive = self._unresponsive_engines(data)
             if unresponsive:
+                summary = ", ".join(
+                    f"{engine} ({reason})" if reason else engine for engine, reason in unresponsive
+                )
+                if _instance_blocked(unresponsive):
+                    # Retrying within the suspension only costs another round trip.
+                    raise RateLimitError(
+                        self.name,
+                        "no results; upstream engines blocked: " + summary,
+                        status_code=None,
+                        retry_after=SEARXNG_SUSPENDED_RETRY_AFTER,
+                    )
                 raise ProviderUnavailableError(
-                    self.name,
-                    "no results; upstream engines unresponsive: " + ", ".join(unresponsive),
+                    self.name, "no results; upstream engines unresponsive: " + summary
                 )
 
         return SearchResponse(
@@ -169,14 +205,15 @@ class SearXNGProvider(SearchProvider):
         )
 
     @staticmethod
-    def _unresponsive_engines(data: dict[str, Any]) -> list[str]:
-        names: list[str] = []
+    def _unresponsive_engines(data: dict[str, Any]) -> list[tuple[str, str]]:
+        """``(engine, reason)`` pairs; the reason is empty when the instance gives none."""
+        engines: list[tuple[str, str]] = []
         for entry in data.get("unresponsive_engines") or []:
             if isinstance(entry, (list, tuple)) and entry:
-                names.append(f"{entry[0]} ({entry[1]})" if len(entry) > 1 else str(entry[0]))
+                engines.append((str(entry[0]), str(entry[1]) if len(entry) > 1 else ""))
             elif entry:
-                names.append(str(entry))
-        return names
+                engines.append((str(entry), ""))
+        return engines
 
     def _raise_for_status(self, response: httpx.Response) -> NoReturn:
         if response.status_code == 403:

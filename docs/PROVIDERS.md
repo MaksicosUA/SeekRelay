@@ -159,10 +159,18 @@ Results keep `source_engines` (which upstream engines returned the URL) and Sear
 
 * **JSON must be enabled.** Without `json` in `search.formats` the instance answers
   403; the provider raises `AuthenticationError` with a hint.
-* **Upstream blocking.** Google and others rate-limit or CAPTCHA metasearch servers. If
-  a search returns nothing *and* `unresponsive_engines` is non-empty, the provider raises
-  `ProviderUnavailableError` so the relay falls back instead of returning a misleading
-  empty list. Choosing engines that tolerate automated use (`SEARXNG_ENGINES`) helps.
+* **Upstream blocking.** Google and others rate-limit or CAPTCHA metasearch servers, and
+  SearXNG then suspends those engines for 180 s ("too many requests", "access denied") up
+  to 3600 s (CAPTCHA). If a search returns nothing *and* `unresponsive_engines` is
+  non-empty, the provider raises an error so the relay falls back instead of returning a
+  misleading empty list:
+  * every unresponsive engine is suspended, rate-limited or behind a CAPTCHA (crashed
+    engines next to them count too): `RateLimitError` with `retry_after=180`. The relay
+    does not retry and skips the instance for 180 s, instead of losing 1.7-2.9 s on every
+    call during the suspension (measured in [LIVE_CHECK.md](LIVE_CHECK.md));
+  * otherwise (timeouts, other errors): `ProviderUnavailableError`, retried as usual.
+
+  Choosing engines that tolerate automated use (`SEARXNG_ENGINES`) helps.
 * **Terms of use.** SearXNG queries third-party engines; heavy automated commercial use
   can conflict with their terms. Keep it for internal tools.
 

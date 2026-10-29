@@ -107,6 +107,41 @@ async def test_long_retry_after_falls_back_without_waiting(
     assert response.attempts[0].error == "RateLimitError"
 
 
+async def test_long_retry_after_cools_down_for_that_long(
+    clock: FakeClock, sleep: FakeSleep
+) -> None:
+    a = FakeProvider("a", RateLimitError("a", "429", retry_after=120))
+    b = FakeProvider("b")
+    relay = make_relay(a, b, clock=clock, sleep=sleep, cache_ttl=None)
+    await relay.search("q")
+    assert relay.cooldown_remaining("a") == 120
+
+    response = await relay.search("q2")
+    assert a.calls == 1
+    assert response.attempts[0].error == "Cooldown"
+    assert "rate-limit" in response.attempts[0].message
+
+    clock.advance(121)
+    await relay.search("q3")
+    assert a.calls == 2
+
+
+async def test_rate_limit_cooldown_only_for_long_retry_after(
+    clock: FakeClock, sleep: FakeSleep
+) -> None:
+    short = FakeProvider("short", RateLimitError("short", "429", retry_after=2))
+    unknown = FakeProvider("unknown", RateLimitError("unknown", "429"))
+    relay = make_relay(short, unknown, FakeProvider("ok"), clock=clock, sleep=sleep)
+    await relay.search("q")
+    assert relay.cooldown_remaining("short") == 0
+    assert relay.cooldown_remaining("unknown") == 0
+
+    off = FakeProvider("off", RateLimitError("off", "429", retry_after=120))
+    relay = make_relay(off, FakeProvider("ok"), clock=clock, sleep=sleep, cooldown_seconds=0)
+    await relay.search("q")
+    assert relay.cooldown_remaining("off") == 0
+
+
 async def test_invalid_request_does_not_leak_to_next_provider(
     clock: FakeClock, sleep: FakeSleep
 ) -> None:

@@ -119,7 +119,9 @@ class SeekRelay:
             provider may have rejected the query deliberately, and sending it to the
             next provider would defeat that.
         fallback_on_empty: Try the next provider when one returns zero results.
-        cooldown_seconds: How long to skip a provider after an auth or quota error.
+        cooldown_seconds: How long to skip a provider after an auth or quota error. A
+            rate limit whose ``retry_after`` exceeds ``retry.max_delay`` skips the provider
+            for ``retry_after`` seconds instead. ``0`` disables both.
         time_budget: Upper bound in seconds for one ``search``/``extract`` call across all
             providers, retries and back-off. When it runs out, the running request is
             cancelled and the remaining providers are skipped, so the call ends with
@@ -434,7 +436,7 @@ class SeekRelay:
             ProviderAttempt(
                 provider.name,
                 "Cooldown",
-                f"skipped for another {remaining:.0f}s after an auth/quota error",
+                f"skipped for another {remaining:.0f}s after an auth, quota or rate-limit error",
             )
         )
         return True
@@ -450,8 +452,17 @@ class SeekRelay:
                 status_code=exc.status_code,
             )
         )
-        if isinstance(exc, (AuthenticationError, QuotaExceededError)) and self._cooldown_seconds:
-            self._cooldown_until[provider.name] = self._clock() + self._cooldown_seconds
+        if self._cooldown_seconds:
+            if isinstance(exc, (AuthenticationError, QuotaExceededError)):
+                self._cooldown_until[provider.name] = self._clock() + self._cooldown_seconds
+            elif (
+                isinstance(exc, RateLimitError)
+                and exc.retry_after is not None
+                and exc.retry_after > self._retry.max_delay
+            ):
+                # The provider said when to come back; asking earlier only costs a round
+                # trip per call (e.g. SearXNG with all upstream engines suspended).
+                self._cooldown_until[provider.name] = self._clock() + exc.retry_after
         logger.warning("provider %s failed: %s", provider.name, exc.message)
 
     # ------------------------------------------------------------------ sync API

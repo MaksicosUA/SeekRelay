@@ -69,7 +69,9 @@ With the default engine set, almost all results came from the `brave` engine:
   suspended or behind a CAPTCHA, the instance stays useless for 3 to 60 minutes. SeekRelay
   treated this as a transient `ProviderUnavailableError`: it retried SearXNG and tried it
   again on the next call, so every search in that period lost 1.7-2.9 s before falling
-  back.
+  back. *Fixed after this run:* the provider now raises `RateLimitError` with
+  `retry_after=180` in this case, and the relay skips the instance for that long without
+  retrying.
 - **Request rate.** A private SearXNG suits scheduled jobs and occasional agent lookups,
   not bursts. Keep a paid provider behind it in `SEEKRELAY_PROVIDERS`.
 - **Engine choice depends on the IP address.** Check the engines from the machine that

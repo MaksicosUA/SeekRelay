@@ -14,6 +14,9 @@ All notable changes to this project are documented here. The format follows
   the assumptions in the code.
 
 ### Changed
+- A `RateLimitError` whose `retry_after` is longer than `RetryPolicy.max_delay` now also
+  puts the provider into cooldown for `retry_after` seconds (it already fell back without
+  waiting), so later calls do not hit a provider that asked to be left alone.
 - Project renamed to SeekRelay: distribution, import package and CLI are now `seekrelay`,
   environment variables use the `SEEKRELAY_` prefix (was `SEARCH_GATEWAY_`), the library
   logger is `seekrelay` and the default User-Agent is `seekrelay/<version>`.
@@ -22,6 +25,11 @@ All notable changes to this project are documented here. The format follows
   `relay`.
 
 ### Fixed
+- SearXNG: when a search returned nothing because the upstream engines were suspended or
+  behind a CAPTCHA (SearXNG keeps them out for 3 to 60 minutes), the provider raised a
+  retryable `ProviderUnavailableError`. Every search during the suspension lost 1.7-2.9 s
+  before falling back (measured live). It now raises `RateLimitError(retry_after=180)`:
+  no retry, and the relay skips the instance for 180 s.
 - SearXNG: `language` values with a region or script subtag (`en-us`, `pt-br` with a
   country, `zh-hans`) were sent as codes SearXNG rejects with HTTP 400, which stopped the
   search without falling back. The provider now always sends `xx` or `xx-YY`.
