@@ -169,6 +169,7 @@ Providers without credentials are skipped, so one `.env` works everywhere.
 | [docs/SECURITY.md](docs/SECURITY.md) | Threat model: prompt injection, data leakage, keys, self-hosting |
 | [docs/EXTENDING.md](docs/EXTENDING.md) | Adding a provider (Exa, Firecrawl, Jina Reader ...) |
 | [docs/DEPLOY_SEARXNG.md](docs/DEPLOY_SEARXNG.md) | Private SearXNG on a VPS with Docker Compose |
+| [docs/LIVE_CHECK.md](docs/LIVE_CHECK.md) | Results of runs against real services, compared with the code's assumptions |
 
 ## Development
 
@@ -198,11 +199,33 @@ src/seekrelay/
 
 ## Status and limitations
 
-- v0.1: tested against mocked HTTP responses built from the providers' documentation
-  (October 2026). Run a live smoke test with your keys before relying on it.
+- All providers are covered by tests against mocked HTTP responses built from the
+  providers' documentation (October 2026). SearXNG has also been checked live; Tavily and
+  the Brave Search API have not yet, so run a smoke test with your keys before relying
+  on them.
 - Only Tavily implements `extract`. Brave and SearXNG return snippets.
 - The cache is per-process and in-memory.
 - `PIIGuard` is a seatbelt for obvious identifiers, not a DLP system.
+
+### Live check (SearXNG, 2026-10-29)
+
+About 50 real requests against the private instance from `deploy/searxng`. Every
+assumption the SearXNG provider makes held: response fields and types, HTTP 400 for
+invalid language codes (which the language fix avoids), `site:a OR site:b` filters
+(28 of 28 results on the requested domains) and punycode filters for internationalised
+domains (30 of 30). Measured on one machine:
+
+| | |
+|---|---|
+| Search latency through SeekRelay | 0.45-2.3 s, median about 1.0 s |
+| Cache hit | 0.05 ms |
+| Upstream engines start blocking the instance | after about 7 searches in 10 s |
+| Pace that kept working | one search every 15-20 s |
+| Engines that answered | bing, duckduckgo, yahoo, brave (google and qwant: access denied) |
+
+A private SearXNG suits scheduled jobs and occasional lookups, not bursts; keep a paid
+provider behind it. Full results and how to reproduce them:
+[docs/LIVE_CHECK.md](docs/LIVE_CHECK.md).
 
 ## License
 

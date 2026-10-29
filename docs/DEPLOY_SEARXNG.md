@@ -67,7 +67,9 @@ export SEARXNG_ENGINES=duckduckgo,brave,wikipedia,github
 ```
 
 Enabled engines and their names are listed on the instance's preferences page
-(`http://127.0.0.1:8888/preferences`, through the tunnel).
+(`http://127.0.0.1:8888/preferences`, through the tunnel). Which engines answer depends
+on the server's IP address; [LIVE_CHECK.md](LIVE_CHECK.md) shows one measured example and
+how to test engines one at a time.
 
 ## 6. Exposing it (only if you must)
 

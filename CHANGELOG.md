@@ -10,6 +10,8 @@ All notable changes to this project are documented here. The format follows
 - `SeekRelay(time_budget=...)` / `SEEKRELAY_TIME_BUDGET`: an upper bound for one
   `search` or `extract` call across all providers, retries and back-off. Without it a call
   could take about two minutes with the default settings when every provider is slow.
+- `docs/LIVE_CHECK.md`: results of a live run against a self-hosted SearXNG, compared with
+  the assumptions in the code.
 
 ### Changed
 - Project renamed to SeekRelay: distribution, import package and CLI are now `seekrelay`,
