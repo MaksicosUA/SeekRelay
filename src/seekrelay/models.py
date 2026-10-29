@@ -76,8 +76,24 @@ class TimeRange(str, Enum):
 # --------------------------------------------------------------------------- helpers
 
 
+def _ascii_host(host: str) -> str:
+    """Lower-case a host and convert internationalised labels to punycode
+    (``работа.рф`` -> ``xn--80aac6chp.xn--p1ai``), so both spellings compare equal.
+
+    Hosts the IDNA codec rejects are returned lower-cased but otherwise unchanged.
+    """
+    host = host.lower()
+    if host.isascii():
+        return host
+    try:
+        return host.encode("idna").decode("ascii")
+    except UnicodeError:
+        return host
+
+
 def normalize_domain(value: str) -> str:
-    """Return a bare, lower-case host name (``https://www.Djinni.co/jobs`` -> ``djinni.co``).
+    """Return a bare, lower-case ASCII host name (``https://www.Djinni.co/jobs`` ->
+    ``djinni.co``). Internationalised domains are converted to punycode.
 
     Raises:
         ValueError: if the value does not look like a domain name.
@@ -86,7 +102,7 @@ def normalize_domain(value: str) -> str:
     if "://" in raw:
         raw = urlsplit(raw).hostname or ""
     raw = raw.split("/", 1)[0].split(":", 1)[0].rstrip(".")
-    raw = raw.removeprefix("www.")
+    raw = _ascii_host(raw).removeprefix("www.")
     if not _DOMAIN_RE.match(raw):
         raise ValueError(f"Invalid domain: {value!r}")
     return raw
@@ -94,7 +110,7 @@ def normalize_domain(value: str) -> str:
 
 def _hostname(url: str) -> str:
     try:
-        return (urlsplit(url).hostname or "").lower()
+        return _ascii_host(urlsplit(url).hostname or "")
     except ValueError:  # e.g. "http://[::1" (unbalanced IPv6 bracket)
         return ""
 
@@ -148,7 +164,7 @@ def canonical_url(url: str) -> str:
         port = parts.port
     except ValueError:
         return url.strip()
-    host = (parts.hostname or "").lower().removeprefix("www.")
+    host = _ascii_host(parts.hostname or "").removeprefix("www.")
     if port and port not in (80, 443):
         host = f"{host}:{port}"
     query = urlencode(

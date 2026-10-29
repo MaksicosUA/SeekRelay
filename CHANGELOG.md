@@ -18,6 +18,9 @@ All notable changes to this project are documented here. The format follows
 - The README setup (`cp .env.example .env`) did not work as written: neither the CLI nor
   `from_env()` read `.env`. The CLI now reads `./.env` when it exists, and
   `SearchGateway.from_env(env_file=".env")` reads a file in code.
+- Internationalised domains (`работа.рф`) in `include_domains` / `exclude_domains` raised
+  `ValueError`. They are now converted to punycode, and domain filters and URL
+  de-duplication treat the Unicode and punycode spellings of a host as the same host.
 
 ## [0.1.0] - 2026-10-28
 

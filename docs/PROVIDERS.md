@@ -13,7 +13,7 @@ often; check the official pages before budgeting.
 | `depth` | `basic` / `advanced` (only Tavily distinguishes them) |
 | `topic` | `general` / `news` |
 | `time_range` | `day` / `week` / `month` / `year` |
-| `include_domains`, `exclude_domains` | Bare domains; subdomains match (`dou.ua` matches `jobs.dou.ua`) |
+| `include_domains`, `exclude_domains` | Bare domains; subdomains match (`dou.ua` matches `jobs.dou.ua`). Internationalised domains are stored as punycode (`работа.рф` -> `xn--80aac6chp.xn--p1ai`) and match result URLs in either spelling |
 | `language` | ISO 639-1 (`en`, `uk`, `ru`, ...) |
 | `country` | ISO 3166-1 alpha-2 (`ua`, `kz`, `de`, ...) |
 | `include_raw_content` | Full page text in results (Tavily only) |

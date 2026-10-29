@@ -67,6 +67,14 @@ class TestSearchQuery:
         assert not query.allows_url("https://jobs.dou.ua/vacancies/")
         assert not query.allows_url("https://notdou.ua/")
 
+    def test_internationalised_domains(self) -> None:
+        query = SearchQuery("q", include_domains=["https://www.Работа.рф/вакансии"])
+        assert query.include_domains == ("xn--80aac6chp.xn--p1ai",)
+        # Providers may return either spelling of the same host.
+        assert query.allows_url("https://работа.рф/vacancy/1")
+        assert query.allows_url("https://msk.xn--80aac6chp.xn--p1ai/")
+        assert not query.allows_url("https://работа.ru/")
+
 
 def test_helpers() -> None:
     assert normalize_domain("HTTPS://www.Example.com:8080/path") == "example.com"
@@ -83,6 +91,9 @@ def test_canonical_url_drops_tracking_and_trailing_slash() -> None:
         "https://example.com/a?id=1"
     )
     assert canonical_url("https://example.com") == canonical_url("https://example.com/")
+    assert canonical_url("https://работа.рф/a") == canonical_url(
+        "https://xn--80aac6chp.xn--p1ai/a/"
+    )
 
 
 def _response(snippet: str, title: str = "t") -> SearchResponse:
