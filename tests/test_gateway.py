@@ -17,6 +17,7 @@ from seekrelay import (
     RetryPolicy,
     SearchGateway,
     SearchQuery,
+    SearchResponse,
 )
 
 from .conftest import FakeClock, FakeProvider, FakeSleep
@@ -352,3 +353,55 @@ async def test_extract_checks_decoded_urls(clock: FakeClock, sleep: FakeSleep) -
 def test_jitter_never_exceeds_max_delay() -> None:
     policy = RetryPolicy(base_delay=8, max_delay=8, jitter=0.5)
     assert all(policy.delay(1) <= 8 for _ in range(100))
+
+
+class SlowProvider(FakeProvider):
+    """A provider that never answers within a test's time budget."""
+
+    async def search(self, query: SearchQuery) -> SearchResponse:
+        self.calls += 1
+        await asyncio.sleep(30)
+        raise AssertionError("the time budget should have cancelled this call")
+
+
+async def test_time_budget_cancels_and_skips_remaining(clock: FakeClock, sleep: FakeSleep) -> None:
+    slow, later = SlowProvider("slow"), FakeProvider("later")
+    gw = gateway(slow, later, clock=clock, sleep=sleep, time_budget=0.05)
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    with pytest.raises(AllProvidersFailedError) as info:
+        await gw.search("q")
+    assert loop.time() - started < 1
+    assert [(a.provider, a.error) for a in info.value.attempts] == [
+        ("slow", "ProviderUnavailableError"),
+        ("later", "TimeBudget"),
+    ]
+    assert "time budget" in info.value.attempts[0].message
+    assert later.calls == 0
+
+
+async def test_time_budget_includes_retry_back_off(clock: FakeClock) -> None:
+    flaky = FakeProvider("flaky", ProviderUnavailableError("flaky", "HTTP 503"))
+    gw = SearchGateway(
+        [flaky],
+        clock=clock,
+        retry=RetryPolicy(max_attempts=3, base_delay=30, max_delay=30, jitter=0),
+        time_budget=0.05,
+    )  # real asyncio.sleep: the 30 s back-off must be cut short
+    with pytest.raises(AllProvidersFailedError) as info:
+        await gw.search("q")
+    assert flaky.calls == 1
+    assert "time budget" in info.value.attempts[0].message
+
+
+async def test_time_budget_leaves_normal_fallback_alone(clock: FakeClock, sleep: FakeSleep) -> None:
+    a = FakeProvider("a", QuotaExceededError("a", "limit"))
+    b = FakeProvider("b", ["https://b.com/1"], extract=True)
+    gw = gateway(a, b, clock=clock, sleep=sleep, time_budget=5)
+    assert (await gw.search("q")).provider == "b"
+    assert (await gw.extract("https://b.com/1")).provider == "b"
+
+
+def test_time_budget_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="time_budget"):
+        SearchGateway([FakeProvider("a")], time_budget=0)

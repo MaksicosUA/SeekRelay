@@ -19,6 +19,7 @@ and `from_env(**overrides)` win over the environment.
 | `SEEKRELAY_MAX_ATTEMPTS` | `2` | Attempts per provider for retryable errors (1 = no retries) |
 | `SEEKRELAY_CACHE_TTL` | `600` | Seconds to cache identical queries; `0` disables the cache |
 | `SEEKRELAY_COOLDOWN` | `300` | Seconds to skip a provider after an auth or quota error |
+| `SEEKRELAY_TIME_BUDGET` | no limit | Max seconds for one `search`/`extract` call across all providers, retries and back-off; `0` or empty means no limit |
 | `SEEKRELAY_PII_GUARD` | `true` | `false` disables the PII guard |
 
 Boolean values accept `true/false`, `1/0`, `yes/no`, `on/off`. An empty value means
@@ -60,6 +61,7 @@ interpolation.
 | `fallback_on_invalid_request` | `False` | Fall back on 400/422 too (see ARCHITECTURE.md for why it is off) |
 | `fallback_on_empty` | `False` | Try the next provider when one returns zero results |
 | `cooldown_seconds` | `300.0` | Cooldown after auth/quota errors; `0` disables |
+| `time_budget` | `None` | Max seconds for one call across all providers; when it runs out the running request is cancelled, the rest are skipped and the call raises `AllProvidersFailedError`. `None` means no limit |
 
 ### `RetryPolicy`
 

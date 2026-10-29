@@ -15,7 +15,9 @@ Variables (all optional except at least one provider's credentials):
 ``SEEKRELAY_MAX_ATTEMPTS``      Attempts per provider. Default ``2``.
 ``SEEKRELAY_CACHE_TTL``         Cache TTL in seconds, ``0`` disables. Default ``600``.
 ``SEEKRELAY_COOLDOWN``          Cooldown after auth/quota errors. Default ``300``.
-``SEEKRELAY_PII_GUARD``         ``false`` disables the PII guard. Default ``true``.
+``SEEKRELAY_TIME_BUDGET``       Max seconds per call across all providers; ``0`` or
+                                empty means no limit. Default: no limit.
+``SEEKRELAY_PII_GUARD``       ``false`` disables the PII guard. Default ``true``.
 =============================== ===================================================
 
 Providers listed in ``SEEKRELAY_PROVIDERS`` but missing credentials are skipped
@@ -205,6 +207,7 @@ def build_gateway_from_env(
         "retry": RetryPolicy(max_attempts=_number(env, "SEEKRELAY_MAX_ATTEMPTS", 2, int) or 1),
         "cache_ttl": _number(env, "SEEKRELAY_CACHE_TTL", 600.0) or None,
         "cooldown_seconds": _number(env, "SEEKRELAY_COOLDOWN", 300.0),
+        "time_budget": _number(env, "SEEKRELAY_TIME_BUDGET", 0.0) or None,
         "pii_guard": PIIGuard() if _bool(env, "SEEKRELAY_PII_GUARD", True) else None,
     }
     settings.update(overrides)

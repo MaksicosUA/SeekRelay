@@ -26,6 +26,7 @@ between:
 | Vendor lock-in, price changes | Providers are interchangeable behind `SearchProvider`; order is configuration |
 | Credits run out mid-month (requests just stop) | `QuotaExceededError` -> provider goes into cooldown -> next provider |
 | Timeouts, 5xx, 429 | Retries with exponential back-off, honours short `Retry-After`, falls back on long ones |
+| An agent stuck waiting while every provider is slow | `time_budget` caps one call across all providers and retries |
 | Different response shapes | One normalised `SearchResponse` / `SearchResult` model |
 | Prompt injection via web pages | `to_llm_context()` escapes all web text and labels it untrusted |
 | Agents leaking personal data into queries | `PIIGuard` blocks e-mails, card numbers and IBANs before any request |

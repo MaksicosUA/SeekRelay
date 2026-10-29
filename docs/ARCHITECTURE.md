@@ -130,6 +130,10 @@ trade-off is acceptable.
 * Auth and quota errors are never retried and put the provider into cooldown
   (`cooldown_seconds`, default 300 s), so a month of exhausted credits does not cost a
   failed round trip on every request.
+* Without a limit, one call can take up to providers x attempts x timeout (about two
+  minutes with the defaults). `time_budget` caps the whole call: the request running
+  when it expires is cancelled and recorded as `ProviderUnavailableError`, providers not
+  tried yet are recorded as `TimeBudget`, and the call raises `AllProvidersFailedError`.
 
 ## Design decisions
 

@@ -61,7 +61,8 @@ async def handle_tool_call(gateway: SearchGateway, arguments: dict[str, Any]) ->
 
 
 async def demo() -> None:
-    async with SearchGateway.from_env() as gateway:
+    # An agent should not wait minutes for a tool: cap each search at 20 seconds.
+    async with SearchGateway.from_env(time_budget=20) as gateway:
         print(json.dumps(TOOL_SPEC, indent=2))
         print(await handle_tool_call(gateway, {"query": "httpx 1.0 release", "max_results": 3}))
 

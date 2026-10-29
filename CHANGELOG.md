@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `SearchGateway(time_budget=...)` / `SEEKRELAY_TIME_BUDGET`: an upper bound for one
+  `search` or `extract` call across all providers, retries and back-off. Without it a call
+  could take about two minutes with the default settings when every provider is slow.
+
 ### Changed
 - Project renamed to SeekRelay: distribution, import package and CLI are now `seekrelay`,
   environment variables use the `SEEKRELAY_` prefix (was `SEARCH_GATEWAY_`), the library

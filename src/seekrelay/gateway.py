@@ -31,6 +31,7 @@ from .errors import (
     AuthenticationError,
     ConfigurationError,
     ProviderError,
+    ProviderUnavailableError,
     QuotaExceededError,
     RateLimitError,
 )
@@ -119,6 +120,10 @@ class SearchGateway:
             next provider would defeat that.
         fallback_on_empty: Try the next provider when one returns zero results.
         cooldown_seconds: How long to skip a provider after an auth or quota error.
+        time_budget: Upper bound in seconds for one ``search``/``extract`` call across all
+            providers, retries and back-off. When it runs out, the running request is
+            cancelled and the remaining providers are skipped, so the call ends with
+            :class:`AllProvidersFailedError`. ``None`` (default) means no limit.
         sleep, clock: Injection points for tests.
 
     Use either the async API (``await search(...)``) or the sync API
@@ -136,6 +141,7 @@ class SearchGateway:
         fallback_on_invalid_request: bool = False,
         fallback_on_empty: bool = False,
         cooldown_seconds: float = 300.0,
+        time_budget: float | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -148,6 +154,8 @@ class SearchGateway:
             raise ConfigurationError(f"Duplicate providers: {', '.join(duplicates)}")
         if cooldown_seconds < 0:
             raise ValueError("cooldown_seconds must not be negative")
+        if time_budget is not None and time_budget <= 0:
+            raise ValueError("time_budget must be positive (or None for no limit)")
 
         self._providers = providers
         self._retry = retry or RetryPolicy()
@@ -158,6 +166,7 @@ class SearchGateway:
         self._fallback_on_invalid_request = fallback_on_invalid_request
         self._fallback_on_empty = fallback_on_empty
         self._cooldown_seconds = cooldown_seconds
+        self._time_budget = time_budget
         self._sleep = sleep
         self._clock = clock
         self._cooldown_until: dict[str, float] = {}
@@ -246,12 +255,15 @@ class SearchGateway:
 
         attempts: list[ProviderAttempt] = []
         empty_response: SearchResponse | None = None
+        deadline = self._deadline()
         for provider in self._providers:
-            if self._skip_if_cooling_down(provider, attempts):
+            if self._skip_if_cooling_down(provider, attempts) or self._skip_if_out_of_time(
+                provider, deadline, attempts
+            ):
                 continue
             try:
-                response = await self._with_retry(
-                    provider, functools.partial(provider.search, search_query)
+                response = await self._within_budget(
+                    provider, functools.partial(provider.search, search_query), deadline
                 )
             except ProviderError as exc:
                 self._record_failure(provider, exc, attempts)
@@ -314,12 +326,17 @@ class SearchGateway:
             )
 
         attempts: list[ProviderAttempt] = []
+        deadline = self._deadline()
         for provider in capable:
-            if self._skip_if_cooling_down(provider, attempts):
+            if self._skip_if_cooling_down(provider, attempts) or self._skip_if_out_of_time(
+                provider, deadline, attempts
+            ):
                 continue
             try:
-                response = await self._with_retry(
-                    provider, functools.partial(provider.extract, cleaned, advanced=advanced)
+                response = await self._within_budget(
+                    provider,
+                    functools.partial(provider.extract, cleaned, advanced=advanced),
+                    deadline,
                 )
             except ProviderError as exc:
                 self._record_failure(provider, exc, attempts)
@@ -331,6 +348,42 @@ class SearchGateway:
         raise AllProvidersFailedError(attempts)
 
     # ------------------------------------------------------------------ internals
+
+    def _deadline(self) -> float | None:
+        """Event-loop time by which the current call must finish (``None``: no budget)."""
+        if self._time_budget is None:
+            return None
+        return asyncio.get_running_loop().time() + self._time_budget
+
+    async def _within_budget(
+        self, provider: SearchProvider, call: Callable[[], Awaitable[T]], deadline: float | None
+    ) -> T:
+        """Run ``call`` with retries; cancel it when the call's time budget runs out."""
+        if deadline is None:
+            return await self._with_retry(provider, call)
+        remaining = deadline - asyncio.get_running_loop().time()
+        try:
+            return await asyncio.wait_for(self._with_retry(provider, call), remaining)
+        except asyncio.TimeoutError:
+            # _with_retry turns every exception from a provider into ProviderError, so a
+            # TimeoutError here can only come from wait_for itself.
+            raise ProviderUnavailableError(
+                provider.name, f"cancelled: the {self._time_budget:g}s time budget ran out"
+            ) from None
+
+    def _skip_if_out_of_time(
+        self, provider: SearchProvider, deadline: float | None, attempts: list[ProviderAttempt]
+    ) -> bool:
+        if deadline is None or asyncio.get_running_loop().time() < deadline:
+            return False
+        attempts.append(
+            ProviderAttempt(
+                provider.name,
+                "TimeBudget",
+                f"skipped: the {self._time_budget:g}s time budget is used up",
+            )
+        )
+        return True
 
     async def _with_retry(self, provider: SearchProvider, call: Callable[[], Awaitable[T]]) -> T:
         attempt = 1

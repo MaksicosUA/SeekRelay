@@ -72,6 +72,15 @@ async def test_gateway_settings_from_env() -> None:
     await gw.aclose()
 
 
+async def test_time_budget_from_env() -> None:
+    gw = build_gateway_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIME_BUDGET": "15"})
+    assert gw._time_budget == 15
+    await gw.aclose()
+    gw = build_gateway_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIME_BUDGET": "0"})
+    assert gw._time_budget is None
+    await gw.aclose()
+
+
 async def test_env_file_is_merged_and_environment_wins(tmp_path: Path) -> None:
     path = tmp_path / ".env"
     path.write_text("TAVILY_API_KEY=t\nSEEKRELAY_PROVIDERS=tavily\n", encoding="utf-8")
