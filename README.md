@@ -58,6 +58,10 @@ pip install -e ".[dev]"
 cp .env.example .env   # add at least one key or a SearXNG URL
 ```
 
+The `seekrelay` CLI reads `./.env` automatically. In code, `SearchGateway.from_env()`
+reads only the process environment; pass `env_file=".env"` to read the file too
+(variables already set in the environment win).
+
 ## Usage
 
 ### Async
@@ -150,7 +154,7 @@ Exit codes: `0` ok, `1` provider failure, `2` usage/configuration error,
 
 ## Configuration
 
-Everything can be set via environment variables (or `--env-file`); see
+Everything can be set via environment variables or a `.env` file; see
 [.env.example](.env.example) and [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 Providers without credentials are skipped, so one `.env` works everywhere.
 

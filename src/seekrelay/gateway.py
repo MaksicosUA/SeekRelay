@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
+import os
 import random
 import time
 from collections.abc import Awaitable, Callable, Coroutine, Iterable, Mapping, Sequence
@@ -164,11 +165,20 @@ class SearchGateway:
         self._closed = False
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None, **overrides: Any) -> SearchGateway:
-        """Build a gateway from environment variables (see docs/CONFIGURATION.md)."""
+    def from_env(
+        cls,
+        env: Mapping[str, str] | None = None,
+        *,
+        env_file: str | os.PathLike[str] | None = None,
+        **overrides: Any,
+    ) -> SearchGateway:
+        """Build a gateway from environment variables (see docs/CONFIGURATION.md).
+
+        ``env_file`` names a ``.env`` file to read as well; real environment variables win.
+        """
         from .config import build_gateway_from_env
 
-        return build_gateway_from_env(env, **overrides)
+        return build_gateway_from_env(env, env_file=env_file, **overrides)
 
     # ------------------------------------------------------------------ introspection
 

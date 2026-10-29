@@ -28,16 +28,18 @@ than being silently ignored. Provider names are case-insensitive.
 
 ### `.env` files
 
-The CLI accepts `--env-file .env`. In code:
+The CLI reads `./.env` from the current directory if it exists; `--env-file PATH` reads
+another file instead. In code, pass the file explicitly:
 
 ```python
-import os
 from seekrelay import SearchGateway
-from seekrelay.config import read_env_file
 
-env = {**read_env_file(".env"), **os.environ}  # real environment wins
-gateway = SearchGateway.from_env(env)
+gateway = SearchGateway.from_env(env_file=".env")  # real environment wins
 ```
+
+`from_env()` without `env_file` reads only the process environment. In both cases a
+variable that is already set in the environment wins over the file, even when it is
+empty (`TAVILY_API_KEY= seekrelay search ...` skips Tavily for one call).
 
 `read_env_file` supports `KEY=VALUE`, `export KEY=VALUE`, single or double quotes
 (text after the closing quote is treated as a comment, and `#` inside quotes is kept)

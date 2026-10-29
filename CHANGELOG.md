@@ -15,6 +15,9 @@ All notable changes to this project are documented here. The format follows
 - SearXNG: `language` values with a region or script subtag (`en-us`, `pt-br` with a
   country, `zh-hans`) were sent as codes SearXNG rejects with HTTP 400, which stopped the
   search without falling back. The provider now always sends `xx` or `xx-YY`.
+- The README setup (`cp .env.example .env`) did not work as written: neither the CLI nor
+  `from_env()` read `.env`. The CLI now reads `./.env` when it exists, and
+  `SearchGateway.from_env(env_file=".env")` reads a file in code.
 
 ## [0.1.0] - 2026-10-28
 

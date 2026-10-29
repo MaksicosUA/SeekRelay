@@ -31,6 +31,7 @@ from .gateway import SearchGateway
 from .models import ExtractResponse, SearchDepth, SearchResponse, TimeRange, Topic
 
 EXIT_OK, EXIT_PROVIDER, EXIT_USAGE, EXIT_REJECTED = 0, 1, 2, 3
+DEFAULT_ENV_FILE = ".env"
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -39,7 +40,11 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Web search for AI agents through Tavily, Brave and SearXNG with fallback.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument("--env-file", help="read settings from a .env file (env vars win)")
+    parser.add_argument(
+        "--env-file",
+        help=f"read settings from a .env file (default: ./{DEFAULT_ENV_FILE} if it exists; "
+        "env vars win)",
+    )
     parser.add_argument("--providers", help="comma-separated provider order, e.g. searxng,tavily")
     parser.add_argument("-v", "--verbose", action="store_true", help="log to stderr")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -140,8 +145,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         env = dict(os.environ)
-        if args.env_file:
-            env = {**read_env_file(args.env_file), **env}
+        env_file = args.env_file
+        if env_file is None and os.path.isfile(DEFAULT_ENV_FILE):
+            env_file = DEFAULT_ENV_FILE
+        if env_file:
+            env = {**read_env_file(env_file), **env}
         return asyncio.run(_run(args, env))
     except QueryRejectedError as exc:
         print(f"rejected: {exc}", file=sys.stderr)

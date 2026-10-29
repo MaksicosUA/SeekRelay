@@ -183,13 +183,22 @@ def build_providers_from_env(
     return providers
 
 
-def build_gateway_from_env(env: Mapping[str, str] | None = None, **overrides: Any) -> SearchGateway:
+def build_gateway_from_env(
+    env: Mapping[str, str] | None = None,
+    *,
+    env_file: str | os.PathLike[str] | None = None,
+    **overrides: Any,
+) -> SearchGateway:
     """Create a :class:`SearchGateway` from environment variables.
 
-    Keyword ``overrides`` are passed to :class:`SearchGateway` and win over the env.
+    ``env_file`` is a ``.env`` file read in addition to ``env`` (see
+    :func:`read_env_file`); variables already present in ``env`` win. Keyword
+    ``overrides`` are passed to :class:`SearchGateway` and win over the env.
     ``order=[...]`` overrides the provider order.
     """
     env = os.environ if env is None else env
+    if env_file is not None:
+        env = {**read_env_file(env_file), **env}
     order = overrides.pop("order", None)
     providers = build_providers_from_env(env, order=order)
     settings: dict[str, Any] = {

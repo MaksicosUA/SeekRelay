@@ -72,6 +72,18 @@ async def test_gateway_settings_from_env() -> None:
     await gw.aclose()
 
 
+async def test_env_file_is_merged_and_environment_wins(tmp_path: Path) -> None:
+    path = tmp_path / ".env"
+    path.write_text("TAVILY_API_KEY=t\nSEEKRELAY_PROVIDERS=tavily\n", encoding="utf-8")
+    env = {"BRAVE_API_KEY": "b", "SEEKRELAY_PROVIDERS": "brave,tavily"}
+    gw = SearchGateway.from_env(env, env_file=path)
+    assert gw.provider_names == ["brave", "tavily"]
+    await gw.aclose()
+
+    with pytest.raises(FileNotFoundError):
+        build_gateway_from_env(env, env_file=tmp_path / "missing.env")
+
+
 def test_read_env_file(tmp_path: Path) -> None:
     path = tmp_path / ".env"
     path.write_text(

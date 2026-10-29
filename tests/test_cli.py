@@ -18,9 +18,11 @@ _ENV_VARS = (
 
 
 @pytest.fixture(autouse=True)
-def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def clean_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     for name in _ENV_VARS:
         monkeypatch.delenv(name, raising=False)
+    # The CLI reads ./.env; keep a developer's real .env (and keys) out of the tests.
+    monkeypatch.chdir(tmp_path)
 
 
 def test_providers_listing(
@@ -39,6 +41,20 @@ def test_env_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     env_file.write_text("BRAVE_API_KEY=b\n", encoding="utf-8")
     assert main(["--env-file", str(env_file), "providers"]) == EXIT_OK
     assert capsys.readouterr().out.strip() == "1. brave"
+
+
+def test_dotenv_in_current_directory_is_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / ".env").write_text("BRAVE_API_KEY=b\nSEEKRELAY_PROVIDERS=brave\n", encoding="utf-8")
+    assert main(["providers"]) == EXIT_OK
+    assert capsys.readouterr().out.strip() == "1. brave"
+
+    # Real environment variables win over the file.
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-x")
+    monkeypatch.setenv("SEEKRELAY_PROVIDERS", "tavily,brave")
+    assert main(["providers"]) == EXIT_OK
+    assert capsys.readouterr().out.splitlines() == ["1. tavily", "2. brave"]
 
 
 def test_missing_configuration(capsys: pytest.CaptureFixture[str]) -> None:
