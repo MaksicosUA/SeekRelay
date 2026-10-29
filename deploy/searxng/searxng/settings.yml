@@ -1,0 +1,28 @@
+# Minimal SearXNG settings for search-gateway.
+# Everything not listed here comes from SearXNG's defaults (use_default_settings).
+# Reference: https://docs.searxng.org/admin/settings/index.html
+
+use_default_settings: true
+
+general:
+  instance_name: "search-gateway"
+
+server:
+  # Overridden by the SEARXNG_SECRET environment variable (see docker-compose.yml).
+  secret_key: "overridden-by-env"
+  # The instance is private (bound to 127.0.0.1), so the bot limiter is not needed and
+  # would otherwise block programmatic clients. Turn it on if you ever expose the port.
+  limiter: false
+  public_instance: false
+  image_proxy: false
+
+search:
+  safe_search: 1
+  # JSON must be enabled explicitly; without it the API answers 403 Forbidden.
+  formats:
+    - html
+    - json
+
+outgoing:
+  request_timeout: 4.0
+  max_request_timeout: 8.0

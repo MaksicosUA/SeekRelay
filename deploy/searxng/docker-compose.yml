@@ -1,0 +1,27 @@
+# Private SearXNG instance for search-gateway.
+#
+# Bound to 127.0.0.1 only: the instance is for your own scripts and agents on this
+# server (or through an SSH tunnel), not a public search engine. See
+# docs/DEPLOY_SEARXNG.md for the full walkthrough.
+#
+#   cp .env.example .env && sed -i "s/change-me/$(openssl rand -hex 32)/" .env
+#   docker compose up -d
+#   curl -s "http://127.0.0.1:8888/search?q=test&format=json" | head -c 300
+
+services:
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SEARXNG_PORT:-8888}:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      SEARXNG_BASE_URL: "http://127.0.0.1:${SEARXNG_PORT:-8888}/"
+      SEARXNG_SECRET: "${SEARXNG_SECRET:?Set SEARXNG_SECRET in .env}"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
