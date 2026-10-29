@@ -4,10 +4,10 @@ One async Python interface for web search in AI agents and RAG pipelines, with
 **Tavily**, **Brave Search** and a self-hosted **SearXNG** behind it.
 
 ```python
-from seekrelay import SearchGateway
+from seekrelay import SeekRelay
 
-async with SearchGateway.from_env() as gateway:
-    response = await gateway.search("fastapi lifespan events", max_results=3, time_range="year")
+async with SeekRelay.from_env() as relay:
+    response = await relay.search("fastapi lifespan events", max_results=3, time_range="year")
     prompt_block = response.to_llm_context()  # escaped, marked as untrusted web content
 ```
 
@@ -21,7 +21,7 @@ of them can change its pricing, run out of quota or go down. Hard-wiring one SDK
 agent makes all of that your problem. SeekRelay puts a small, typed layer in
 between:
 
-| Problem | What the gateway does |
+| Problem | What SeekRelay does |
 |---|---|
 | Vendor lock-in, price changes | Providers are interchangeable behind `SearchProvider`; order is configuration |
 | Credits run out mid-month (requests just stop) | `QuotaExceededError` -> provider goes into cooldown -> next provider |
@@ -59,7 +59,7 @@ pip install -e ".[dev]"
 cp .env.example .env   # add at least one key or a SearXNG URL
 ```
 
-The `seekrelay` CLI reads `./.env` automatically. In code, `SearchGateway.from_env()`
+The `seekrelay` CLI reads `./.env` automatically. In code, `SeekRelay.from_env()`
 reads only the process environment; pass `env_file=".env"` to read the file too
 (variables already set in the environment win).
 
@@ -69,13 +69,13 @@ reads only the process environment; pass `env_file=".env"` to read the file too
 
 ```python
 import asyncio
-from seekrelay import SearchGateway, AllProvidersFailedError, QueryRejectedError
+from seekrelay import SeekRelay, AllProvidersFailedError, QueryRejectedError
 
 
 async def main() -> None:
-    async with SearchGateway.from_env() as gateway:
+    async with SeekRelay.from_env() as relay:
         try:
-            response = await gateway.search(
+            response = await relay.search(
                 "remote python developer vacancy",
                 max_results=10,
                 time_range="week",
@@ -94,7 +94,7 @@ async def main() -> None:
         for result in response.results:
             print(result.title, result.url, result.snippet)
 
-        pages = await gateway.extract([r.url for r in response.results[:3]])
+        pages = await relay.extract([r.url for r in response.results[:3]])
         print(pages.to_llm_context())
 
 
@@ -104,10 +104,10 @@ asyncio.run(main())
 ### Sync (scripts, notebooks without a running loop)
 
 ```python
-from seekrelay import SearchGateway
+from seekrelay import SeekRelay
 
-with SearchGateway.from_env() as gateway:
-    response = gateway.search_sync("python 3.13 free-threading", max_results=5)
+with SeekRelay.from_env() as relay:
+    response = relay.search_sync("python 3.13 free-threading", max_results=5)
 ```
 
 ### Explicit providers
@@ -116,12 +116,12 @@ with SearchGateway.from_env() as gateway:
 from seekrelay import (
     BraveProvider,
     RetryPolicy,
-    SearchGateway,
+    SeekRelay,
     SearXNGProvider,
     TavilyProvider,
 )
 
-gateway = SearchGateway(
+relay = SeekRelay(
     [
         SearXNGProvider("http://127.0.0.1:8888"),  # free, first
         BraveProvider(api_key="..."),
@@ -182,7 +182,7 @@ Project layout:
 
 ```
 src/seekrelay/
-├── gateway.py        # SearchGateway, RetryPolicy, de-duplication
+├── relay.py          # SeekRelay, RetryPolicy, de-duplication
 ├── models.py         # SearchQuery, SearchResponse, ... + to_llm_context()
 ├── errors.py         # exception hierarchy (retryable / fallback flags)
 ├── pii.py            # PIIGuard

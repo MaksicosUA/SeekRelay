@@ -7,11 +7,11 @@ import pytest
 from seekrelay import (
     BraveProvider,
     ConfigurationError,
-    SearchGateway,
     SearXNGProvider,
+    SeekRelay,
     TavilyProvider,
 )
-from seekrelay.config import build_gateway_from_env, build_providers_from_env, read_env_file
+from seekrelay.config import build_providers_from_env, build_relay_from_env, read_env_file
 
 
 async def test_builds_available_providers_in_order() -> None:
@@ -41,14 +41,14 @@ def test_errors() -> None:
     with pytest.raises(ConfigurationError, match="Unknown provider"):
         build_providers_from_env({"SEEKRELAY_PROVIDERS": "google", "TAVILY_API_KEY": "t"})
     with pytest.raises(ConfigurationError, match="SEEKRELAY_PII_GUARD"):
-        build_gateway_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_PII_GUARD": "maybe"})
+        build_relay_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_PII_GUARD": "maybe"})
     with pytest.raises(ConfigurationError, match="SEEKRELAY_TIMEOUT"):
         build_providers_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIMEOUT": "fast"})
     with pytest.raises(ConfigurationError, match="SearXNG base URL"):
         build_providers_from_env({"SEARXNG_BASE_URL": "127.0.0.1:8888"})
 
 
-async def test_gateway_settings_from_env() -> None:
+async def test_relay_settings_from_env() -> None:
     env = {
         "TAVILY_API_KEY": "t",
         "SEEKRELAY_CACHE_TTL": "0",
@@ -56,41 +56,41 @@ async def test_gateway_settings_from_env() -> None:
         "SEEKRELAY_MAX_ATTEMPTS": "3",
         "SEEKRELAY_COOLDOWN": "10",
     }
-    gw = build_gateway_from_env(env)
-    assert isinstance(gw, SearchGateway)
-    assert gw._cache is None
-    assert gw._pii_guard is None
-    assert gw._retry.max_attempts == 3
-    assert gw._cooldown_seconds == 10
-    await gw.aclose()
+    relay = build_relay_from_env(env)
+    assert isinstance(relay, SeekRelay)
+    assert relay._cache is None
+    assert relay._pii_guard is None
+    assert relay._retry.max_attempts == 3
+    assert relay._cooldown_seconds == 10
+    await relay.aclose()
 
-    gw = SearchGateway.from_env(
+    relay = SeekRelay.from_env(
         {"TAVILY_API_KEY": "t", "BRAVE_API_KEY": "b"}, order=["brave"], cache_ttl=5
     )
-    assert gw.provider_names == ["brave"]
-    assert gw._cache is not None
-    await gw.aclose()
+    assert relay.provider_names == ["brave"]
+    assert relay._cache is not None
+    await relay.aclose()
 
 
 async def test_time_budget_from_env() -> None:
-    gw = build_gateway_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIME_BUDGET": "15"})
-    assert gw._time_budget == 15
-    await gw.aclose()
-    gw = build_gateway_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIME_BUDGET": "0"})
-    assert gw._time_budget is None
-    await gw.aclose()
+    relay = build_relay_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIME_BUDGET": "15"})
+    assert relay._time_budget == 15
+    await relay.aclose()
+    relay = build_relay_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIME_BUDGET": "0"})
+    assert relay._time_budget is None
+    await relay.aclose()
 
 
 async def test_env_file_is_merged_and_environment_wins(tmp_path: Path) -> None:
     path = tmp_path / ".env"
     path.write_text("TAVILY_API_KEY=t\nSEEKRELAY_PROVIDERS=tavily\n", encoding="utf-8")
     env = {"BRAVE_API_KEY": "b", "SEEKRELAY_PROVIDERS": "brave,tavily"}
-    gw = SearchGateway.from_env(env, env_file=path)
-    assert gw.provider_names == ["brave", "tavily"]
-    await gw.aclose()
+    relay = SeekRelay.from_env(env, env_file=path)
+    assert relay.provider_names == ["brave", "tavily"]
+    await relay.aclose()
 
     with pytest.raises(FileNotFoundError):
-        build_gateway_from_env(env, env_file=tmp_path / "missing.env")
+        build_relay_from_env(env, env_file=tmp_path / "missing.env")
 
 
 def test_read_env_file(tmp_path: Path) -> None:
@@ -116,18 +116,18 @@ def test_read_env_file(tmp_path: Path) -> None:
 
 
 async def test_empty_values_keep_safe_defaults() -> None:
-    gw = build_gateway_from_env(
+    relay = build_relay_from_env(
         {"TAVILY_API_KEY": "t", "SEEKRELAY_PII_GUARD": " ", "SEEKRELAY_CACHE_TTL": ""}
     )
-    assert gw._pii_guard is not None  # empty must not disable the guard
-    assert gw._cache is not None
-    await gw.aclose()
+    assert relay._pii_guard is not None  # empty must not disable the guard
+    assert relay._cache is not None
+    await relay.aclose()
 
 
 @pytest.mark.parametrize("value", ["nan", "inf", "-1"])
 def test_non_finite_or_negative_numbers_rejected(value: str) -> None:
     with pytest.raises(ConfigurationError):
-        build_gateway_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_COOLDOWN": value})
+        build_relay_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_COOLDOWN": value})
 
 
 def test_quoted_value_with_trailing_comment(tmp_path: Path) -> None:

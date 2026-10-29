@@ -60,7 +60,7 @@ export SEARXNG_BASE_URL=http://127.0.0.1:8888
 
 Some engines (notably Google) block metasearch traffic quickly. When that happens the
 provider raises `ProviderUnavailableError` ("upstream engines unresponsive") and the
-gateway falls back. To reduce it, pin engines that tolerate automated use:
+relay falls back. To reduce it, pin engines that tolerate automated use:
 
 ```bash
 export SEARXNG_ENGINES=duckduckgo,brave,wikipedia,github

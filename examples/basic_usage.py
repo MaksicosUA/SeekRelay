@@ -10,14 +10,14 @@ from __future__ import annotations
 import asyncio
 import sys
 
-from seekrelay import AllProvidersFailedError, QueryRejectedError, SearchGateway
+from seekrelay import AllProvidersFailedError, QueryRejectedError, SeekRelay
 
 
 async def main(query: str) -> None:
-    async with SearchGateway.from_env() as gateway:
-        print("Providers:", " -> ".join(gateway.provider_names))
+    async with SeekRelay.from_env() as relay:
+        print("Providers:", " -> ".join(relay.provider_names))
         try:
-            response = await gateway.search(query, max_results=5, time_range="year")
+            response = await relay.search(query, max_results=5, time_range="year")
         except QueryRejectedError as exc:
             print("Blocked locally:", exc)
             return

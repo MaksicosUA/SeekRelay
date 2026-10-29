@@ -25,10 +25,10 @@ from collections.abc import Sequence
 from typing import Any
 
 from ._version import __version__
-from .config import build_gateway_from_env, parse_csv, read_env_file
-from .errors import ConfigurationError, ProviderError, QueryRejectedError, SearchGatewayError
-from .gateway import SearchGateway
+from .config import build_relay_from_env, parse_csv, read_env_file
+from .errors import ConfigurationError, ProviderError, QueryRejectedError, SeekRelayError
 from .models import ExtractResponse, SearchDepth, SearchResponse, TimeRange, Topic
+from .relay import SeekRelay
 
 EXIT_OK, EXIT_PROVIDER, EXIT_USAGE, EXIT_REJECTED = 0, 1, 2, 3
 DEFAULT_ENV_FILE = ".env"
@@ -111,10 +111,10 @@ def _print_extract(response: ExtractResponse, fmt: str) -> None:
 
 async def _run(args: argparse.Namespace, env: dict[str, str]) -> int:
     order = parse_csv(args.providers) or None
-    gateway: SearchGateway = build_gateway_from_env(env, order=order)
-    async with gateway:
+    relay: SeekRelay = build_relay_from_env(env, order=order)
+    async with relay:
         if args.command == "providers":
-            for index, name in enumerate(gateway.provider_names, start=1):
+            for index, name in enumerate(relay.provider_names, start=1):
                 print(f"{index}. {name}")
             return EXIT_OK
         if args.command == "search":
@@ -129,9 +129,9 @@ async def _run(args: argparse.Namespace, env: dict[str, str]) -> int:
                 "country": args.country,
                 "include_raw_content": args.raw,
             }
-            _print_search(await gateway.search(args.query, **options), args.format)
+            _print_search(await relay.search(args.query, **options), args.format)
             return EXIT_OK
-        _print_extract(await gateway.extract(args.urls, advanced=args.advanced), args.format)
+        _print_extract(await relay.extract(args.urls, advanced=args.advanced), args.format)
         return EXIT_OK
 
 
@@ -160,7 +160,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ProviderError as exc:
         print(f"provider error: {exc}", file=sys.stderr)
         return EXIT_PROVIDER
-    except SearchGatewayError as exc:
+    except SeekRelayError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_PROVIDER
     except KeyboardInterrupt:

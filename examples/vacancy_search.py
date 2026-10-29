@@ -7,7 +7,7 @@ paid ones as fallback:
     SEEKRELAY_PROVIDERS=searxng,brave,tavily python examples/vacancy_search.py
 
 Job boards often render listings with JavaScript or hide them behind a login, so
-snippets can be short; open the URLs (or call gateway.extract) for full descriptions.
+snippets can be short; open the URLs (or call relay.extract) for full descriptions.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from seekrelay import AllProvidersFailedError, SearchGateway
+from seekrelay import AllProvidersFailedError, SeekRelay
 
 JOB_BOARDS = ("djinni.co", "jobs.dou.ua", "work.ua", "robota.ua", "hh.kz")
 QUERIES = (
@@ -29,10 +29,10 @@ QUERIES = (
 
 async def collect(output: Path) -> None:
     found: dict[str, dict[str, str]] = {}
-    async with SearchGateway.from_env(fallback_on_empty=True) as gateway:
+    async with SeekRelay.from_env(fallback_on_empty=True) as relay:
         for text in QUERIES:
             try:
-                response = await gateway.search(
+                response = await relay.search(
                     text, max_results=10, time_range="week", include_domains=JOB_BOARDS
                 )
             except AllProvidersFailedError as exc:

@@ -7,7 +7,7 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
-- `SearchGateway(time_budget=...)` / `SEEKRELAY_TIME_BUDGET`: an upper bound for one
+- `SeekRelay(time_budget=...)` / `SEEKRELAY_TIME_BUDGET`: an upper bound for one
   `search` or `extract` call across all providers, retries and back-off. Without it a call
   could take about two minutes with the default settings when every provider is slow.
 
@@ -15,6 +15,9 @@ All notable changes to this project are documented here. The format follows
 - Project renamed to SeekRelay: distribution, import package and CLI are now `seekrelay`,
   environment variables use the `SEEKRELAY_` prefix (was `SEARCH_GATEWAY_`), the library
   logger is `seekrelay` and the default User-Agent is `seekrelay/<version>`.
+- `SearchGateway` is now `SeekRelay`, `SearchGatewayError` is `SeekRelayError`,
+  `build_gateway_from_env` is `build_relay_from_env`, and the `gateway` module is
+  `relay`.
 
 ### Fixed
 - SearXNG: `language` values with a region or script subtag (`en-us`, `pt-br` with a
@@ -22,7 +25,7 @@ All notable changes to this project are documented here. The format follows
   search without falling back. The provider now always sends `xx` or `xx-YY`.
 - The README setup (`cp .env.example .env`) did not work as written: neither the CLI nor
   `from_env()` read `.env`. The CLI now reads `./.env` when it exists, and
-  `SearchGateway.from_env(env_file=".env")` reads a file in code.
+  `SeekRelay.from_env(env_file=".env")` reads a file in code.
 - Internationalised domains (`работа.рф`) in `include_domains` / `exclude_domains` raised
   `ValueError`. They are now converted to punycode, and domain filters and URL
   de-duplication treat the Unicode and punycode spellings of a host as the same host.

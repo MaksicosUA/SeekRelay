@@ -88,7 +88,7 @@ class ExaProvider(SearchProvider):
 
 Jina Reader, Firecrawl or a self-hosted Crawl4AI can be added as providers that only
 implement `extract()`. Give them a `search()` that raises `UnsupportedOperationError`;
-the gateway then uses them for `extract` and falls through them for `search`.
+the relay then uses them for `extract` and falls through them for `search`.
 
 When fetching pages yourself (Crawl4AI, Playwright), validate the target before the
 request: resolve the host and reject loopback, private, link-local and cloud metadata
@@ -98,6 +98,6 @@ addresses, and limit response size and redirects. See SECURITY.md (T10).
 
 * Keep the result contract small: put nothing provider-specific into `SearchResult`
   without adding it to the model and all docs.
-* Raise the most specific exception: the gateway's retry, fallback and cooldown
+* Raise the most specific exception: the relay's retry, fallback and cooldown
   behaviour depends on it.
 * No new runtime dependencies without a strong reason; `httpx` is enough for REST APIs.

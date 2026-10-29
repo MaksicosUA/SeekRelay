@@ -315,7 +315,7 @@ class SearchQuery:
 
 @dataclass(frozen=True, slots=True)
 class ProviderAttempt:
-    """What happened with one provider during a gateway call (for fallback reporting)."""
+    """What happened with one provider during a relay call (for fallback reporting)."""
 
     provider: str
     error: str

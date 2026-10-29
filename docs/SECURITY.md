@@ -2,7 +2,7 @@
 
 Web search is the point where an LLM application reads text written by strangers and
 sends text written by itself to third parties. This document lists the risks the
-gateway addresses, how, and what remains the application's job.
+relay addresses, how, and what remains the application's job.
 
 ## Threat model
 

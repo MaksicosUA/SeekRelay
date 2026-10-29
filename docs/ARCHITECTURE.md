@@ -18,13 +18,13 @@ across providers (results come from the first provider that succeeds).
 
 ```mermaid
 flowchart LR
-    App["Agent / app code"] -->|search / extract| GW[SearchGateway]
-    GW --> PII[PIIGuard]
-    GW --> Cache[TTLCache]
-    GW --> RP[RetryPolicy]
-    GW --> P1[TavilyProvider]
-    GW --> P2[BraveProvider]
-    GW --> P3[SearXNGProvider]
+    App["Agent / app code"] -->|search / extract| SR[SeekRelay]
+    SR --> PII[PIIGuard]
+    SR --> Cache[TTLCache]
+    SR --> RP[RetryPolicy]
+    SR --> P1[TavilyProvider]
+    SR --> P2[BraveProvider]
+    SR --> P3[SearXNGProvider]
     P1 & P2 & P3 --> Base["SearchProvider (base)<br/>httpx + error mapping"]
     Base -->|HTTPS| Tavily[(api.tavily.com)]
     Base -->|HTTPS| Brave[(api.search.brave.com)]
@@ -34,13 +34,13 @@ flowchart LR
 | Module | Responsibility |
 |---|---|
 | `models.py` | Immutable, validated `SearchQuery` (also the cache key); result and response types; URL helpers; prompt-safe rendering |
-| `errors.py` | Exception hierarchy; `retryable` and `fallback` flags drive the gateway |
+| `errors.py` | Exception hierarchy; `retryable` and `fallback` flags drive the relay |
 | `providers/base.py` | Owns the `httpx.AsyncClient`, sends requests, maps transport errors and HTTP status codes to exceptions |
 | `providers/*.py` | Translate `SearchQuery` to one API and the answer back; provider-specific status codes |
-| `gateway.py` | Ordering, retries, fallback, cooldown, cache, de-duplication, sync wrapper |
+| `relay.py` | Ordering, retries, fallback, cooldown, cache, de-duplication, sync wrapper |
 | `pii.py` | Detects e-mails, Luhn-valid card numbers, mod-97-valid IBANs (phones optional) |
 | `cache.py` | In-memory TTL + LRU cache |
-| `config.py` | Build providers/gateway from environment variables; minimal `.env` reader |
+| `config.py` | Build providers/relay from environment variables; minimal `.env` reader |
 | `cli.py` | `seekrelay` command |
 
 ## Request flow
@@ -48,7 +48,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     participant C as Caller
-    participant G as SearchGateway
+    participant G as SeekRelay
     participant P as Provider i
     C->>G: search("query", **options)
     G->>G: SearchQuery(...) validates and normalises
@@ -86,7 +86,7 @@ sequenceDiagram
 ## Error model
 
 Every provider failure is a `ProviderError` subclass. Two class attributes decide what
-the gateway does with it:
+the relay does with it:
 
 | Exception | Typical cause | `retryable` | `fallback` | Cooldown |
 |---|---|:-:|:-:|:-:|
@@ -125,7 +125,7 @@ trade-off is acceptable.
 * Retries are per provider and only for `retryable` errors, with exponential back-off
   (`base_delay * 2^(n-1)`, capped by `max_delay`, +/- jitter).
 * A `Retry-After` shorter than `max_delay` is honoured exactly. A longer one is not
-  waited for; the gateway falls back immediately, because an agent waiting a minute is
+  waited for; the relay falls back immediately, because an agent waiting a minute is
   worse than an answer from the next provider.
 * Auth and quota errors are never retried and put the provider into cooldown
   (`cooldown_seconds`, default 300 s), so a month of exhausted credits does not cost a
@@ -154,10 +154,10 @@ trade-off is acceptable.
 
 ## Concurrency
 
-`SearchGateway.search` is safe to call concurrently from one event loop
+`SeekRelay.search` is safe to call concurrently from one event loop
 (`asyncio.gather`). Each provider shares one `httpx.AsyncClient` connection pool. The
 cache and cooldown state are plain dictionaries mutated without awaits in between, so
-no locking is needed within one loop. Do not share one gateway between threads or
+no locking is needed within one loop. Do not share one relay between threads or
 event loops; create one per loop.
 
 ## Extension points
@@ -167,5 +167,5 @@ event loops; create one per loop.
   to a provider; injected clients are not closed by the provider.
 * Custom PII rules: pass a configured `PIIGuard`, or `pii_guard=None` and check
   upstream.
-* Shared cache: the gateway only needs `get(key)` / `set(key, value)`; a Redis-backed
+* Shared cache: the relay only needs `get(key)` / `set(key, value)`; a Redis-backed
   variant can replace `TTLCache` in a later version.

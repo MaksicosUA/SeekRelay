@@ -46,7 +46,7 @@ concurrently; `extract_depth` is `basic` or `advanced` (`advanced=True`), format
 `markdown`. Successful pages and `failed_results` are merged. If some batches fail, the
 successful ones are kept and the URLs of failed batches are reported in `failed` (so a
 retry never pays for the same pages twice); only when every batch fails is the error
-raised for the gateway to retry or fall back.
+raised for the relay to retry or fall back.
 
 ### Status codes
 
@@ -89,7 +89,7 @@ raised for the gateway to retry or fall back.
 
 | SearchQuery | Brave query parameter |
 |---|---|
-| `text` | `q` (max 400 characters / 50 words including operators; longer -> `UnsupportedOperationError`, so the gateway falls back) |
+| `text` | `q` (max 400 characters / 50 words including operators; longer -> `UnsupportedOperationError`, so the relay falls back) |
 | `max_results` | `count` (20 when a domain filter is active, see below) |
 | `topic=news` | `news/search` endpoint instead of `web/search` |
 | `time_range` | `freshness`: `pd` / `pw` / `pm` / `py` |
@@ -161,7 +161,7 @@ Results keep `source_engines` (which upstream engines returned the URL) and Sear
   403; the provider raises `AuthenticationError` with a hint.
 * **Upstream blocking.** Google and others rate-limit or CAPTCHA metasearch servers. If
   a search returns nothing *and* `unresponsive_engines` is non-empty, the provider raises
-  `ProviderUnavailableError` so the gateway falls back instead of returning a misleading
+  `ProviderUnavailableError` so the relay falls back instead of returning a misleading
   empty list. Choosing engines that tolerate automated use (`SEARXNG_ENGINES`) helps.
 * **Terms of use.** SearXNG queries third-party engines; heavy automated commercial use
   can conflict with their terms. Keep it for internal tools.

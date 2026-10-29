@@ -2,10 +2,10 @@
 
 Quick start::
 
-    from seekrelay import SearchGateway
+    from seekrelay import SeekRelay
 
-    async with SearchGateway.from_env() as gateway:
-        response = await gateway.search("fastapi lifespan events", max_results=3)
+    async with SeekRelay.from_env() as relay:
+        response = await relay.search("fastapi lifespan events", max_results=3)
         prompt_block = response.to_llm_context()
 """
 
@@ -24,10 +24,9 @@ from .errors import (
     QuotaExceededError,
     RateLimitError,
     ResponseFormatError,
-    SearchGatewayError,
+    SeekRelayError,
     UnsupportedOperationError,
 )
-from .gateway import RetryPolicy, SearchGateway
 from .models import (
     ExtractedPage,
     ExtractResponse,
@@ -42,6 +41,7 @@ from .models import (
 )
 from .pii import PIIGuard
 from .providers import BraveProvider, SearchProvider, SearXNGProvider, TavilyProvider
+from .relay import RetryPolicy, SeekRelay
 
 # Library convention: emit nothing unless the application configures logging.
 logging.getLogger("seekrelay").addHandler(logging.NullHandler())
@@ -66,12 +66,12 @@ __all__ = [
     "RetryPolicy",
     "SearXNGProvider",
     "SearchDepth",
-    "SearchGateway",
-    "SearchGatewayError",
     "SearchProvider",
     "SearchQuery",
     "SearchResponse",
     "SearchResult",
+    "SeekRelay",
+    "SeekRelayError",
     "TTLCache",
     "TavilyProvider",
     "TimeRange",

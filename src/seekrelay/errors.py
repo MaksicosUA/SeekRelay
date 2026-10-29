@@ -1,9 +1,9 @@
 """Exception hierarchy.
 
-Every error raised by the library derives from :class:`SearchGatewayError`, so callers
+Every error raised by the library derives from :class:`SeekRelayError`, so callers
 can catch a single base class.
 
-Provider errors carry two class-level flags that drive the gateway's behaviour:
+Provider errors carry two class-level flags that drive the relay's behaviour:
 
 * ``retryable`` - the *same* provider may succeed if we try again shortly
   (timeouts, 5xx, rate limits).
@@ -33,20 +33,20 @@ __all__ = [
     "QuotaExceededError",
     "RateLimitError",
     "ResponseFormatError",
-    "SearchGatewayError",
+    "SeekRelayError",
     "UnsupportedOperationError",
 ]
 
 
-class SearchGatewayError(Exception):
+class SeekRelayError(Exception):
     """Base class for every error raised by SeekRelay."""
 
 
-class ConfigurationError(SearchGatewayError):
+class ConfigurationError(SeekRelayError):
     """Missing or invalid configuration (no providers, empty API key, bad URL, ...)."""
 
 
-class QueryRejectedError(SearchGatewayError):
+class QueryRejectedError(SeekRelayError):
     """The request was blocked locally, before any network call (e.g. by the PII guard).
 
     ``findings`` lists the *kinds* of data that were detected (``"email"``,
@@ -59,7 +59,7 @@ class QueryRejectedError(SearchGatewayError):
         self.findings: tuple[str, ...] = tuple(findings)
 
 
-class ProviderError(SearchGatewayError):
+class ProviderError(SeekRelayError):
     """A provider failed to serve a request."""
 
     retryable: bool = False
@@ -83,14 +83,14 @@ class ProviderError(SearchGatewayError):
 class AuthenticationError(ProviderError):
     """HTTP 401/403: the API key is missing, wrong or revoked, or access is denied.
 
-    The gateway puts the provider into cooldown, because retrying will not help.
+    The relay puts the provider into cooldown, because retrying will not help.
     """
 
 
 class QuotaExceededError(ProviderError):
     """Plan, credit or pay-as-you-go limit reached (Tavily 432/433, HTTP 402).
 
-    The gateway puts the provider into cooldown and falls back to the next one.
+    The relay puts the provider into cooldown and falls back to the next one.
     """
 
 
@@ -131,11 +131,11 @@ class ResponseFormatError(ProviderError):
 class UnsupportedOperationError(ProviderError):
     """The provider cannot do this: an operation it lacks (``extract`` on Brave) or a
     request it cannot express (e.g. a query too long for Brave once domain operators
-    are added). Other providers may still succeed, so the gateway falls back.
+    are added). Other providers may still succeed, so the relay falls back.
     """
 
 
-class AllProvidersFailedError(SearchGatewayError):
+class AllProvidersFailedError(SeekRelayError):
     """Every configured provider failed or was skipped.
 
     ``attempts`` records what happened with each provider, in order.

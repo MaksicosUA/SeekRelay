@@ -1,4 +1,4 @@
-"""Build providers and a gateway from environment variables.
+"""Build providers and a relay from environment variables.
 
 Variables (all optional except at least one provider's credentials):
 
@@ -34,14 +34,14 @@ from pathlib import Path
 from typing import Any
 
 from .errors import ConfigurationError
-from .gateway import RetryPolicy, SearchGateway
 from .pii import PIIGuard
 from .providers import BraveProvider, SearchProvider, SearXNGProvider, TavilyProvider
+from .relay import RetryPolicy, SeekRelay
 
 __all__ = [
     "DEFAULT_PROVIDER_ORDER",
-    "build_gateway_from_env",
     "build_providers_from_env",
+    "build_relay_from_env",
     "parse_csv",
     "read_env_file",
 ]
@@ -185,17 +185,17 @@ def build_providers_from_env(
     return providers
 
 
-def build_gateway_from_env(
+def build_relay_from_env(
     env: Mapping[str, str] | None = None,
     *,
     env_file: str | os.PathLike[str] | None = None,
     **overrides: Any,
-) -> SearchGateway:
-    """Create a :class:`SearchGateway` from environment variables.
+) -> SeekRelay:
+    """Create a :class:`SeekRelay` from environment variables.
 
     ``env_file`` is a ``.env`` file read in addition to ``env`` (see
     :func:`read_env_file`); variables already present in ``env`` win. Keyword
-    ``overrides`` are passed to :class:`SearchGateway` and win over the env.
+    ``overrides`` are passed to :class:`SeekRelay` and win over the env.
     ``order=[...]`` overrides the provider order.
     """
     env = os.environ if env is None else env
@@ -211,4 +211,4 @@ def build_gateway_from_env(
         "pii_guard": PIIGuard() if _bool(env, "SEEKRELAY_PII_GUARD", True) else None,
     }
     settings.update(overrides)
-    return SearchGateway(providers, **settings)
+    return SeekRelay(providers, **settings)

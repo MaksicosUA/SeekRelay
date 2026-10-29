@@ -218,7 +218,7 @@ class TavilyProvider(SearchProvider):
             *(self._extract_batch(b, advanced) for b in batches), return_exceptions=True
         )
 
-        # If every batch failed, raise so the gateway can retry or fall back. If some
+        # If every batch failed, raise so the relay can retry or fall back. If some
         # succeeded, keep them (their credits are already spent) and report the URLs of
         # failed batches individually instead of failing the whole call, which would
         # make a retry pay for the successful batches again.

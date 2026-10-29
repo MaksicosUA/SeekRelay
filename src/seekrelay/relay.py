@@ -1,4 +1,4 @@
-"""The gateway: one entry point over an ordered list of providers.
+"""The relay: one entry point over an ordered list of providers.
 
 Request flow (see docs/ARCHITECTURE.md):
 
@@ -7,7 +7,7 @@ Request flow (see docs/ARCHITECTURE.md):
 3. Cache lookup (identical query within the TTL).
 4. Try providers in order. Each provider gets ``RetryPolicy.max_attempts`` attempts for
    retryable errors (timeouts, 5xx, 429). Quota/auth failures put the provider into
-   cooldown and the gateway falls back to the next provider.
+   cooldown and the relay falls back to the next provider.
 5. De-duplicate results, store in cache, return the response together with the list
    of failed attempts (so callers can see that a fallback happened).
 """
@@ -47,7 +47,7 @@ from .models import (
 from .pii import PIIGuard
 from .providers.base import SearchProvider
 
-__all__ = ["RetryPolicy", "SearchGateway", "dedupe_results"]
+__all__ = ["RetryPolicy", "SeekRelay", "dedupe_results"]
 
 logger = logging.getLogger("seekrelay")
 
@@ -65,7 +65,7 @@ class RetryPolicy:
         max_attempts: Attempts per provider, including the first one (1 = no retries).
         base_delay: First back-off delay in seconds; doubles on each retry.
         max_delay: Upper bound for a single delay. If a provider asks us to wait longer
-            (``Retry-After``), the gateway does not wait and falls back instead.
+            (``Retry-After``), the relay does not wait and falls back instead.
         jitter: Random +/- fraction applied to computed delays.
     """
 
@@ -105,7 +105,7 @@ def dedupe_results(results: Iterable[SearchResult]) -> list[SearchResult]:
     return unique
 
 
-class SearchGateway:
+class SeekRelay:
     """Search through an ordered list of providers with fallback.
 
     Args:
@@ -180,14 +180,14 @@ class SearchGateway:
         *,
         env_file: str | os.PathLike[str] | None = None,
         **overrides: Any,
-    ) -> SearchGateway:
-        """Build a gateway from environment variables (see docs/CONFIGURATION.md).
+    ) -> SeekRelay:
+        """Build a relay from environment variables (see docs/CONFIGURATION.md).
 
         ``env_file`` names a ``.env`` file to read as well; real environment variables win.
         """
-        from .config import build_gateway_from_env
+        from .config import build_relay_from_env
 
-        return build_gateway_from_env(env, env_file=env_file, **overrides)
+        return build_relay_from_env(env, env_file=env_file, **overrides)
 
     # ------------------------------------------------------------------ introspection
 
@@ -218,7 +218,7 @@ class SearchGateway:
             self._cache.clear()
 
     def __repr__(self) -> str:
-        return f"SearchGateway(providers={self.provider_names!r})"
+        return f"SeekRelay(providers={self.provider_names!r})"
 
     # ------------------------------------------------------------------ search
 
@@ -414,7 +414,7 @@ class SearchGateway:
                 attempt += 1
             except Exception as exc:
                 # A bug or an unexpected payload in one provider must not take the whole
-                # search down: log it with a traceback and let the gateway fall back.
+                # search down: log it with a traceback and let the relay fall back.
                 logger.exception("provider %s raised an unexpected error", provider.name)
                 raise ProviderError(
                     provider.name, f"unexpected {type(exc).__name__}: {str(exc)[:200]}"
@@ -422,7 +422,7 @@ class SearchGateway:
 
     def _ensure_open(self) -> None:
         if self._closed:
-            raise RuntimeError("SearchGateway is closed; create a new instance")
+            raise RuntimeError("SeekRelay is closed; create a new instance")
 
     def _skip_if_cooling_down(
         self, provider: SearchProvider, attempts: list[ProviderAttempt]
@@ -472,7 +472,7 @@ class SearchGateway:
         else:
             coro.close()
             raise RuntimeError(
-                "The sync API cannot run inside an event loop; use 'await gateway.search(...)'"
+                "The sync API cannot run inside an event loop; use 'await relay.search(...)'"
             )
         # One private loop for the whole lifetime of the instance, so the HTTP connection
         # pool (bound to the loop that created it) stays valid between calls.
@@ -502,9 +502,9 @@ class SearchGateway:
         except RuntimeError:
             asyncio.run(self.aclose())
         else:
-            raise RuntimeError("Inside an event loop use 'await gateway.aclose()'")
+            raise RuntimeError("Inside an event loop use 'await relay.aclose()'")
 
-    async def __aenter__(self) -> SearchGateway:
+    async def __aenter__(self) -> SeekRelay:
         return self
 
     async def __aexit__(
@@ -515,7 +515,7 @@ class SearchGateway:
     ) -> None:
         await self.aclose()
 
-    def __enter__(self) -> SearchGateway:
+    def __enter__(self) -> SeekRelay:
         return self
 
     def __exit__(

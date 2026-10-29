@@ -1,7 +1,7 @@
 # Configuration
 
-There are two ways to configure the gateway: environment variables (via
-`SearchGateway.from_env()` or the CLI) and constructor arguments. Constructor arguments
+There are two ways to configure the relay: environment variables (via
+`SeekRelay.from_env()` or the CLI) and constructor arguments. Constructor arguments
 and `from_env(**overrides)` win over the environment.
 
 ## Environment variables
@@ -33,9 +33,9 @@ The CLI reads `./.env` from the current directory if it exists; `--env-file PATH
 another file instead. In code, pass the file explicitly:
 
 ```python
-from seekrelay import SearchGateway
+from seekrelay import SeekRelay
 
-gateway = SearchGateway.from_env(env_file=".env")  # real environment wins
+relay = SeekRelay.from_env(env_file=".env")  # real environment wins
 ```
 
 `from_env()` without `env_file` reads only the process environment. In both cases a
@@ -49,7 +49,7 @@ interpolation.
 
 ## Constructor options
 
-### `SearchGateway`
+### `SeekRelay`
 
 | Argument | Default | Description |
 |---|---|---|
@@ -120,7 +120,7 @@ SEEKRELAY_CACHE_TTL=3600
 **Interactive agent, fail fast**
 
 ```python
-SearchGateway.from_env(retry=RetryPolicy(max_attempts=1), fallback_on_empty=True)
+SeekRelay.from_env(retry=RetryPolicy(max_attempts=1), fallback_on_empty=True)
 ```
 
 **Tests in your own project**: inject a provider whose client uses

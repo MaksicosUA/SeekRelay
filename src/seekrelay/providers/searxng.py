@@ -47,7 +47,7 @@ class SearXNGProvider(SearchProvider):
 
     If the instance answers with zero results while some upstream engines were
     unresponsive (CAPTCHA, timeouts), the provider raises
-    :class:`ProviderUnavailableError` so the gateway can fall back, instead of
+    :class:`ProviderUnavailableError` so the relay can fall back, instead of
     returning a misleading empty result.
 
     Args:

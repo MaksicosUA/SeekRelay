@@ -48,7 +48,7 @@ def recorder_factory() -> Callable[..., Recorder]:
 
 
 class FakeProvider(SearchProvider):
-    """Scripted provider for gateway tests.
+    """Scripted provider for relay tests.
 
     Each outcome is either an exception to raise or a list of URLs to return.
     The last outcome repeats once the script is exhausted.

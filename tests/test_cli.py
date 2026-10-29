@@ -79,8 +79,8 @@ def test_invalid_query_is_usage_error(
     assert "max_results" in capsys.readouterr().err
 
 
-class _FakeGatewayFactory:
-    """Replace the env-based builder with a gateway over scripted providers."""
+class _FakeRelayFactory:
+    """Replace the env-based builder with a relay over scripted providers."""
 
     def __init__(self) -> None:
         from seekrelay import QuotaExceededError
@@ -93,19 +93,19 @@ class _FakeGatewayFactory:
         ]
 
     def __call__(self, env: object, **overrides: object) -> object:
-        from seekrelay import SearchGateway
+        from seekrelay import SeekRelay
 
-        return SearchGateway(self.providers, cache_ttl=None)
+        return SeekRelay(self.providers, cache_ttl=None)
 
 
 @pytest.fixture
-def fake_gateway(monkeypatch: pytest.MonkeyPatch) -> _FakeGatewayFactory:
-    factory = _FakeGatewayFactory()
-    monkeypatch.setattr("seekrelay.cli.build_gateway_from_env", factory)
+def fake_relay(monkeypatch: pytest.MonkeyPatch) -> _FakeRelayFactory:
+    factory = _FakeRelayFactory()
+    monkeypatch.setattr("seekrelay.cli.build_relay_from_env", factory)
     return factory
 
 
-def test_search_text_output(fake_gateway: object, capsys: pytest.CaptureFixture[str]) -> None:
+def test_search_text_output(fake_relay: object, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["search", "python jobs", "-n", "2", "--time-range", "week"]) == EXIT_OK
     out = capsys.readouterr().out
     assert out.startswith("[brave] 2 results")
@@ -115,28 +115,26 @@ def test_search_text_output(fake_gateway: object, capsys: pytest.CaptureFixture[
 
 @pytest.mark.parametrize(("fmt", "marker"), [("json", '"provider": "brave"'), ("llm", "<result")])
 def test_search_machine_formats(
-    fake_gateway: object, capsys: pytest.CaptureFixture[str], fmt: str, marker: str
+    fake_relay: object, capsys: pytest.CaptureFixture[str], fmt: str, marker: str
 ) -> None:
     assert main(["search", "q", "--format", fmt]) == EXIT_OK
     assert marker in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("fmt", ["text", "json", "llm"])
-def test_extract_formats(
-    fake_gateway: object, capsys: pytest.CaptureFixture[str], fmt: str
-) -> None:
+def test_extract_formats(fake_relay: object, capsys: pytest.CaptureFixture[str], fmt: str) -> None:
     assert main(["extract", "https://a.com", "--format", fmt]) == EXIT_OK
     assert "content of https://a.com" in capsys.readouterr().out
 
 
 def test_all_failed_exit_code(
-    fake_gateway: _FakeGatewayFactory, capsys: pytest.CaptureFixture[str]
+    fake_relay: _FakeRelayFactory, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from seekrelay import ProviderUnavailableError
 
     from .conftest import FakeProvider
 
-    fake_gateway.providers[:] = [FakeProvider("x", ProviderUnavailableError("x", "down"))]
+    fake_relay.providers[:] = [FakeProvider("x", ProviderUnavailableError("x", "down"))]
     assert main(["search", "q"]) == 1
     assert "All providers failed" in capsys.readouterr().err
 
