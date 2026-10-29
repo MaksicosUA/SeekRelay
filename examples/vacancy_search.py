@@ -4,7 +4,7 @@ A realistic scheduled job: several queries, restricted to job-board domains, las
 only, de-duplicated across queries. Cheap providers first (SearXNG on your own server),
 paid ones as fallback:
 
-    SEARCH_GATEWAY_PROVIDERS=searxng,brave,tavily python examples/vacancy_search.py
+    SEEKRELAY_PROVIDERS=searxng,brave,tavily python examples/vacancy_search.py
 
 Job boards often render listings with JavaScript or hide them behind a login, so
 snippets can be short; open the URLs (or call gateway.extract) for full descriptions.
@@ -17,7 +17,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from search_gateway import AllProvidersFailedError, SearchGateway
+from seekrelay import AllProvidersFailedError, SearchGateway
 
 JOB_BOARDS = ("djinni.co", "jobs.dou.ua", "work.ua", "robota.ua", "hh.kz")
 QUERIES = (

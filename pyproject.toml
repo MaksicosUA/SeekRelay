@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "search-gateway"
+name = "seekrelay"
 version = "0.1.0"
 description = "One async interface for AI-agent web search: Tavily, Brave Search and self-hosted SearXNG with fallback, retries, caching and a PII guard."
 readme = "README.md"
@@ -37,11 +37,16 @@ dev = [
     "mypy>=1.10",
 ]
 
+[project.urls]
+Homepage = "https://github.com/MaksicosUA/SeekRelay"
+Issues = "https://github.com/MaksicosUA/SeekRelay/issues"
+Changelog = "https://github.com/MaksicosUA/SeekRelay/blob/main/CHANGELOG.md"
+
 [project.scripts]
-search-gateway = "search_gateway.cli:main"
+seekrelay = "seekrelay.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/search_gateway"]
+packages = ["src/seekrelay"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src", "tests", "docs", "examples", "deploy", "README.md", "CHANGELOG.md", "LICENSE"]

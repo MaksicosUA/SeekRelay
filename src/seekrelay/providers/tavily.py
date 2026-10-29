@@ -37,7 +37,7 @@ from .base import SearchProvider
 
 __all__ = ["TAVILY_BASE_URL", "TAVILY_COUNTRY_NAMES", "TavilyProvider"]
 
-logger = logging.getLogger("search_gateway")
+logger = logging.getLogger("seekrelay")
 
 TAVILY_BASE_URL = "https://api.tavily.com"
 EXTRACT_BATCH_SIZE = 20  # documented maximum number of URLs per /extract call

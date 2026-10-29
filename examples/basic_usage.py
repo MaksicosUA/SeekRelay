@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import sys
 
-from search_gateway import AllProvidersFailedError, QueryRejectedError, SearchGateway
+from seekrelay import AllProvidersFailedError, QueryRejectedError, SearchGateway
 
 
 async def main(query: str) -> None:

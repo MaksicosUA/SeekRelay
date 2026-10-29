@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from search_gateway.cli import EXIT_OK, EXIT_REJECTED, EXIT_USAGE, main
+from seekrelay.cli import EXIT_OK, EXIT_REJECTED, EXIT_USAGE, main
 
 _ENV_VARS = (
     "TAVILY_API_KEY",
     "BRAVE_API_KEY",
     "BRAVE_SEARCH_API_KEY",
     "SEARXNG_BASE_URL",
-    "SEARCH_GATEWAY_PROVIDERS",
+    "SEEKRELAY_PROVIDERS",
 )
 
 
@@ -67,7 +67,7 @@ class _FakeGatewayFactory:
     """Replace the env-based builder with a gateway over scripted providers."""
 
     def __init__(self) -> None:
-        from search_gateway import QuotaExceededError
+        from seekrelay import QuotaExceededError
 
         from .conftest import FakeProvider
 
@@ -77,7 +77,7 @@ class _FakeGatewayFactory:
         ]
 
     def __call__(self, env: object, **overrides: object) -> object:
-        from search_gateway import SearchGateway
+        from seekrelay import SearchGateway
 
         return SearchGateway(self.providers, cache_ttl=None)
 
@@ -85,7 +85,7 @@ class _FakeGatewayFactory:
 @pytest.fixture
 def fake_gateway(monkeypatch: pytest.MonkeyPatch) -> _FakeGatewayFactory:
     factory = _FakeGatewayFactory()
-    monkeypatch.setattr("search_gateway.cli.build_gateway_from_env", factory)
+    monkeypatch.setattr("seekrelay.cli.build_gateway_from_env", factory)
     return factory
 
 
@@ -116,7 +116,7 @@ def test_extract_formats(
 def test_all_failed_exit_code(
     fake_gateway: _FakeGatewayFactory, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from search_gateway import ProviderUnavailableError
+    from seekrelay import ProviderUnavailableError
 
     from .conftest import FakeProvider
 

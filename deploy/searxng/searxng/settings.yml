@@ -1,11 +1,11 @@
-# Minimal SearXNG settings for search-gateway.
+# Minimal SearXNG settings for SeekRelay.
 # Everything not listed here comes from SearXNG's defaults (use_default_settings).
 # Reference: https://docs.searxng.org/admin/settings/index.html
 
 use_default_settings: true
 
 general:
-  instance_name: "search-gateway"
+  instance_name: "seekrelay"
 
 server:
   # Overridden by the SEARXNG_SECRET environment variable (see docker-compose.yml).

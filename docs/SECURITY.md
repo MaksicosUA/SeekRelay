@@ -6,7 +6,7 @@ gateway addresses, how, and what remains the application's job.
 
 ## Threat model
 
-| # | Threat | Where | Mitigation in search-gateway | Remaining responsibility |
+| # | Threat | Where | Mitigation in SeekRelay | Remaining responsibility |
 |---|---|---|---|---|
 | T1 | Indirect prompt injection: a page contains "ignore previous instructions..." | Results -> prompt | `to_llm_context()` escapes all web text (`<`, `>`, `&`, quotes), wraps it in tags and labels it untrusted, so a page cannot close the wrapper and pose as system text | Tell the model in the system prompt to treat `<web_search_results>` as data. Never let search output alone trigger tools with side effects (shell, email, payments) without confirmation |
 | T2 | Personal data leaks to a search provider | Query/URL -> provider | `PIIGuard` blocks e-mails, card numbers (Luhn) and IBANs before any request; `extract` URLs are also checked after percent/plus decoding (`jane%40corp.example`) | Names, addresses and internal identifiers are not detected. Do not build queries from private documents |

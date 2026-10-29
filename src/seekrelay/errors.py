@@ -39,7 +39,7 @@ __all__ = [
 
 
 class SearchGatewayError(Exception):
-    """Base class for every error raised by search-gateway."""
+    """Base class for every error raised by SeekRelay."""
 
 
 class ConfigurationError(SearchGatewayError):

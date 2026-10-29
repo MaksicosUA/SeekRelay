@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- Project renamed to SeekRelay: distribution, import package and CLI are now `seekrelay`,
+  environment variables use the `SEEKRELAY_` prefix (was `SEARCH_GATEWAY_`), the library
+  logger is `seekrelay` and the default User-Agent is `seekrelay/<version>`.
+
 ## [0.1.0] - 2026-10-28
 
 ### Added

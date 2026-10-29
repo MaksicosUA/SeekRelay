@@ -6,7 +6,7 @@ client, timeouts, transport errors and common status codes.
 
 ## Checklist
 
-1. Create `src/search_gateway/providers/<name>.py`.
+1. Create `src/seekrelay/providers/<name>.py`.
 2. Set the class attributes `name` (unique, lower-case) and `supports_extract`.
 3. Validate configuration in `__init__` and raise `ConfigurationError` for missing keys.
 4. Implement `search()`; implement `extract()` if the API can fetch page content.
@@ -15,7 +15,7 @@ client, timeouts, transport errors and common status codes.
    and skip. Never silently widen a filter.
 6. Override `_raise_for_status()` only for non-standard status codes, then call
    `super()._raise_for_status(response)`.
-7. Export it in `providers/__init__.py` and `search_gateway/__init__.py`; add env support
+7. Export it in `providers/__init__.py` and `seekrelay/__init__.py`; add env support
    in `config.py` if needed (and to `DEFAULT_PROVIDER_ORDER`).
 8. Add tests with `httpx.MockTransport` (see `tests/test_brave.py`): request mapping,
    response mapping, each error code, empty results.

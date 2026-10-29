@@ -2,11 +2,11 @@
 
 Examples::
 
-    search-gateway search "fastapi background tasks" -n 3
-    search-gateway search "python vacancy remote" --topic news --time-range week \\
+    seekrelay search "fastapi background tasks" -n 3
+    seekrelay search "python vacancy remote" --topic news --time-range week \\
         --include-domain djinni.co --format json
-    search-gateway extract https://docs.tavily.com --format llm
-    search-gateway providers
+    seekrelay extract https://docs.tavily.com --format llm
+    seekrelay providers
 
 Exit codes: 0 success, 1 provider failure, 2 usage/configuration error,
 3 request rejected by the PII guard.
@@ -35,7 +35,7 @@ EXIT_OK, EXIT_PROVIDER, EXIT_USAGE, EXIT_REJECTED = 0, 1, 2, 3
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="search-gateway",
+        prog="seekrelay",
         description="Web search for AI agents through Tavily, Brave and SearXNG with fallback.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")

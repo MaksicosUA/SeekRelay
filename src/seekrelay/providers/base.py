@@ -28,10 +28,10 @@ from ..models import ExtractResponse, SearchQuery, SearchResponse
 
 __all__ = ["DEFAULT_TIMEOUT", "DEFAULT_USER_AGENT", "SearchProvider", "parse_retry_after"]
 
-logger = logging.getLogger("search_gateway")
+logger = logging.getLogger("seekrelay")
 
 DEFAULT_TIMEOUT = 20.0
-DEFAULT_USER_AGENT = f"search-gateway/{__version__}"
+DEFAULT_USER_AGENT = f"seekrelay/{__version__}"
 
 _ERROR_KEYS = ("error", "detail", "message", "msg", "description")
 

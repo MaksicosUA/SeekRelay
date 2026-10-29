@@ -5,7 +5,7 @@ import json
 import httpx
 import pytest
 
-from search_gateway import (
+from seekrelay import (
     AuthenticationError,
     ConfigurationError,
     InvalidRequestError,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from search_gateway import PIIGuard, QueryRejectedError
+from seekrelay import PIIGuard, QueryRejectedError
 
 
 @pytest.mark.parametrize(

@@ -4,19 +4,19 @@ from pathlib import Path
 
 import pytest
 
-from search_gateway import (
+from seekrelay import (
     BraveProvider,
     ConfigurationError,
     SearchGateway,
     SearXNGProvider,
     TavilyProvider,
 )
-from search_gateway.config import build_gateway_from_env, build_providers_from_env, read_env_file
+from seekrelay.config import build_gateway_from_env, build_providers_from_env, read_env_file
 
 
 async def test_builds_available_providers_in_order() -> None:
     env = {
-        "SEARCH_GATEWAY_PROVIDERS": "searxng, tavily ,brave",
+        "SEEKRELAY_PROVIDERS": "searxng, tavily ,brave",
         "TAVILY_API_KEY": "tvly-x",
         "SEARXNG_BASE_URL": "http://127.0.0.1:8888",
         "SEARXNG_ENGINES": "duckduckgo,brave",
@@ -39,11 +39,11 @@ def test_errors() -> None:
     with pytest.raises(ConfigurationError, match="No search provider"):
         build_providers_from_env({})
     with pytest.raises(ConfigurationError, match="Unknown provider"):
-        build_providers_from_env({"SEARCH_GATEWAY_PROVIDERS": "google", "TAVILY_API_KEY": "t"})
-    with pytest.raises(ConfigurationError, match="SEARCH_GATEWAY_PII_GUARD"):
-        build_gateway_from_env({"TAVILY_API_KEY": "t", "SEARCH_GATEWAY_PII_GUARD": "maybe"})
-    with pytest.raises(ConfigurationError, match="SEARCH_GATEWAY_TIMEOUT"):
-        build_providers_from_env({"TAVILY_API_KEY": "t", "SEARCH_GATEWAY_TIMEOUT": "fast"})
+        build_providers_from_env({"SEEKRELAY_PROVIDERS": "google", "TAVILY_API_KEY": "t"})
+    with pytest.raises(ConfigurationError, match="SEEKRELAY_PII_GUARD"):
+        build_gateway_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_PII_GUARD": "maybe"})
+    with pytest.raises(ConfigurationError, match="SEEKRELAY_TIMEOUT"):
+        build_providers_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIMEOUT": "fast"})
     with pytest.raises(ConfigurationError, match="SearXNG base URL"):
         build_providers_from_env({"SEARXNG_BASE_URL": "127.0.0.1:8888"})
 
@@ -51,10 +51,10 @@ def test_errors() -> None:
 async def test_gateway_settings_from_env() -> None:
     env = {
         "TAVILY_API_KEY": "t",
-        "SEARCH_GATEWAY_CACHE_TTL": "0",
-        "SEARCH_GATEWAY_PII_GUARD": "off",
-        "SEARCH_GATEWAY_MAX_ATTEMPTS": "3",
-        "SEARCH_GATEWAY_COOLDOWN": "10",
+        "SEEKRELAY_CACHE_TTL": "0",
+        "SEEKRELAY_PII_GUARD": "off",
+        "SEEKRELAY_MAX_ATTEMPTS": "3",
+        "SEEKRELAY_COOLDOWN": "10",
     }
     gw = build_gateway_from_env(env)
     assert isinstance(gw, SearchGateway)
@@ -80,14 +80,14 @@ def test_read_env_file(tmp_path: Path) -> None:
         "TAVILY_API_KEY=tvly-abc\n"
         "export BRAVE_API_KEY='brave key'\n"
         'SEARXNG_BASE_URL="http://127.0.0.1:8888"\n'
-        "SEARCH_GATEWAY_CACHE_TTL=60 # one minute\n",
+        "SEEKRELAY_CACHE_TTL=60 # one minute\n",
         encoding="utf-8",
     )
     assert read_env_file(path) == {
         "TAVILY_API_KEY": "tvly-abc",
         "BRAVE_API_KEY": "brave key",
         "SEARXNG_BASE_URL": "http://127.0.0.1:8888",
-        "SEARCH_GATEWAY_CACHE_TTL": "60",
+        "SEEKRELAY_CACHE_TTL": "60",
     }
     path.write_text("BROKEN LINE\n", encoding="utf-8")
     with pytest.raises(ConfigurationError, match=":1:"):
@@ -96,7 +96,7 @@ def test_read_env_file(tmp_path: Path) -> None:
 
 async def test_empty_values_keep_safe_defaults() -> None:
     gw = build_gateway_from_env(
-        {"TAVILY_API_KEY": "t", "SEARCH_GATEWAY_PII_GUARD": " ", "SEARCH_GATEWAY_CACHE_TTL": ""}
+        {"TAVILY_API_KEY": "t", "SEEKRELAY_PII_GUARD": " ", "SEEKRELAY_CACHE_TTL": ""}
     )
     assert gw._pii_guard is not None  # empty must not disable the guard
     assert gw._cache is not None
@@ -106,7 +106,7 @@ async def test_empty_values_keep_safe_defaults() -> None:
 @pytest.mark.parametrize("value", ["nan", "inf", "-1"])
 def test_non_finite_or_negative_numbers_rejected(value: str) -> None:
     with pytest.raises(ConfigurationError):
-        build_gateway_from_env({"TAVILY_API_KEY": "t", "SEARCH_GATEWAY_COOLDOWN": value})
+        build_gateway_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_COOLDOWN": value})
 
 
 def test_quoted_value_with_trailing_comment(tmp_path: Path) -> None:

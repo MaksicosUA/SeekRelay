@@ -9,8 +9,8 @@ from typing import Any
 import httpx
 import pytest
 
-from search_gateway import SearchProvider, SearchQuery, SearchResponse, SearchResult
-from search_gateway.models import ExtractedPage, ExtractResponse
+from seekrelay import SearchProvider, SearchQuery, SearchResponse, SearchResult
+from seekrelay.models import ExtractedPage, ExtractResponse
 
 Handler = Callable[[httpx.Request], httpx.Response]
 

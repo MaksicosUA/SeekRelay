@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from search_gateway import SearchQuery, SearchResponse, SearchResult, TimeRange, Topic
-from search_gateway.models import (
+from seekrelay import SearchQuery, SearchResponse, SearchResult, TimeRange, Topic
+from seekrelay.models import (
     ExtractedPage,
     ExtractResponse,
     canonical_url,

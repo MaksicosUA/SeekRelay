@@ -174,7 +174,7 @@ Only the server. A small VPS is enough for personal agents and scheduled jobs.
 
 ## Choosing an order
 
-| Workload | Suggested `SEARCH_GATEWAY_PROVIDERS` |
+| Workload | Suggested `SEEKRELAY_PROVIDERS` |
 |---|---|
 | Interactive agent, quality first | `tavily,brave,searxng` |
 | Scheduled jobs, cost first | `searxng,brave,tavily` |

@@ -1,4 +1,4 @@
-# Private SearXNG instance for search-gateway.
+# Private SearXNG instance for SeekRelay.
 #
 # Bound to 127.0.0.1 only: the instance is for your own scripts and agents on this
 # server (or through an SSH tunnel), not a public search engine. See

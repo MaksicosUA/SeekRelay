@@ -1,8 +1,8 @@
-"""search-gateway: one async interface for AI-agent web search.
+"""SeekRelay: one async interface for AI-agent web search.
 
 Quick start::
 
-    from search_gateway import SearchGateway
+    from seekrelay import SearchGateway
 
     async with SearchGateway.from_env() as gateway:
         response = await gateway.search("fastapi lifespan events", max_results=3)
@@ -44,7 +44,7 @@ from .pii import PIIGuard
 from .providers import BraveProvider, SearchProvider, SearXNGProvider, TavilyProvider
 
 # Library convention: emit nothing unless the application configures logging.
-logging.getLogger("search_gateway").addHandler(logging.NullHandler())
+logging.getLogger("seekrelay").addHandler(logging.NullHandler())
 
 __all__ = [
     "AllProvidersFailedError",

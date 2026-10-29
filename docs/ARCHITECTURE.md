@@ -41,7 +41,7 @@ flowchart LR
 | `pii.py` | Detects e-mails, Luhn-valid card numbers, mod-97-valid IBANs (phones optional) |
 | `cache.py` | In-memory TTL + LRU cache |
 | `config.py` | Build providers/gateway from environment variables; minimal `.env` reader |
-| `cli.py` | `search-gateway` command |
+| `cli.py` | `seekrelay` command |
 
 ## Request flow
 
@@ -146,7 +146,7 @@ trade-off is acceptable.
 | `follow_redirects=False` | A redirect from an API usually means a wrong base URL or a login page; it is reported, not followed |
 | `PIIGuard` favours precision | Card numbers need a valid Luhn checksum and a 2-6 prefix, IBANs a valid mod-97 checksum; phones are opt-in |
 | No logging of secrets or PII | `repr()` of providers omits keys; `QueryRejectedError` lists kinds of data only |
-| Library logger has a `NullHandler` | The application decides where logs go (`logging.getLogger("search_gateway")`) |
+| Library logger has a `NullHandler` | The application decides where logs go (`logging.getLogger("seekrelay")`) |
 
 ## Concurrency
 

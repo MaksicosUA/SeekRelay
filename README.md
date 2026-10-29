@@ -1,10 +1,10 @@
-# search-gateway
+# SeekRelay
 
 One async Python interface for web search in AI agents and RAG pipelines, with
 **Tavily**, **Brave Search** and a self-hosted **SearXNG** behind it.
 
 ```python
-from search_gateway import SearchGateway
+from seekrelay import SearchGateway
 
 async with SearchGateway.from_env() as gateway:
     response = await gateway.search("fastapi lifespan events", max_results=3, time_range="year")
@@ -18,7 +18,7 @@ by your own SearXNG. Application code never changes.
 
 Search APIs for agents differ in price, quality, latency and failure modes, and any one
 of them can change its pricing, run out of quota or go down. Hard-wiring one SDK into an
-agent makes all of that your problem. `search-gateway` puts a small, typed layer in
+agent makes all of that your problem. SeekRelay puts a small, typed layer in
 between:
 
 | Problem | What the gateway does |
@@ -52,7 +52,7 @@ between:
 Requires Python 3.10+. The only runtime dependency is `httpx`.
 
 ```bash
-git clone <your-repo-url> search-gateway && cd search-gateway
+git clone https://github.com/MaksicosUA/SeekRelay.git && cd SeekRelay
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env   # add at least one key or a SearXNG URL
@@ -64,7 +64,7 @@ cp .env.example .env   # add at least one key or a SearXNG URL
 
 ```python
 import asyncio
-from search_gateway import SearchGateway, AllProvidersFailedError, QueryRejectedError
+from seekrelay import SearchGateway, AllProvidersFailedError, QueryRejectedError
 
 
 async def main() -> None:
@@ -99,7 +99,7 @@ asyncio.run(main())
 ### Sync (scripts, notebooks without a running loop)
 
 ```python
-from search_gateway import SearchGateway
+from seekrelay import SearchGateway
 
 with SearchGateway.from_env() as gateway:
     response = gateway.search_sync("python 3.13 free-threading", max_results=5)
@@ -108,7 +108,7 @@ with SearchGateway.from_env() as gateway:
 ### Explicit providers
 
 ```python
-from search_gateway import (
+from seekrelay import (
     BraveProvider,
     RetryPolicy,
     SearchGateway,
@@ -137,12 +137,12 @@ errors into short messages the model can act on.
 ### CLI
 
 ```bash
-search-gateway providers
-search-gateway search "fastapi background tasks" -n 3
-search-gateway search "LLM engineer remote" --time-range week \
+seekrelay providers
+seekrelay search "fastapi background tasks" -n 3
+seekrelay search "LLM engineer remote" --time-range week \
     --include-domain djinni.co --include-domain jobs.dou.ua --format json
-search-gateway --providers searxng,tavily search "rag evaluation" --format llm
-search-gateway extract https://docs.searxng.org/dev/search_api.html
+seekrelay --providers searxng,tavily search "rag evaluation" --format llm
+seekrelay extract https://docs.searxng.org/dev/search_api.html
 ```
 
 Exit codes: `0` ok, `1` provider failure, `2` usage/configuration error,
@@ -176,14 +176,14 @@ mypy                    # strict
 Project layout:
 
 ```
-src/search_gateway/
+src/seekrelay/
 ├── gateway.py        # SearchGateway, RetryPolicy, de-duplication
 ├── models.py         # SearchQuery, SearchResponse, ... + to_llm_context()
 ├── errors.py         # exception hierarchy (retryable / fallback flags)
 ├── pii.py            # PIIGuard
 ├── cache.py          # TTL + LRU cache
 ├── config.py         # env-based construction, .env reader
-├── cli.py            # search-gateway command
+├── cli.py            # seekrelay command
 └── providers/
     ├── base.py       # SearchProvider ABC, HTTP + error mapping
     ├── tavily.py

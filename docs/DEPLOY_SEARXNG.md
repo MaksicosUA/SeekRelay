@@ -39,13 +39,13 @@ curl -s "http://127.0.0.1:8888/search?q=searxng&format=json" | python3 -m json.t
 Expect a `results` array. A 403 means JSON is not enabled in the settings file that the
 container actually loaded.
 
-## 4. Point search-gateway at it
+## 4. Point SeekRelay at it
 
 On the same server:
 
 ```bash
 export SEARXNG_BASE_URL=http://127.0.0.1:8888
-search-gateway --providers searxng search "python asyncio taskgroup" -n 3
+seekrelay --providers searxng search "python asyncio taskgroup" -n 3
 ```
 
 From your own computer, through an SSH tunnel (nothing exposed publicly):

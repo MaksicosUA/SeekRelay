@@ -35,7 +35,7 @@ from .base import SearchProvider, parse_retry_after
 
 __all__ = ["BRAVE_BASE_URL", "BRAVE_COUNTRIES", "BRAVE_LANGUAGES", "BraveProvider"]
 
-logger = logging.getLogger("search_gateway")
+logger = logging.getLogger("seekrelay")
 
 BRAVE_BASE_URL = "https://api.search.brave.com/res/v1"
 

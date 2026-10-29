@@ -47,7 +47,7 @@ from .providers.base import SearchProvider
 
 __all__ = ["RetryPolicy", "SearchGateway", "dedupe_results"]
 
-logger = logging.getLogger("search_gateway")
+logger = logging.getLogger("seekrelay")
 
 T = TypeVar("T")
 

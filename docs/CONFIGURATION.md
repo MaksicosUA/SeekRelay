@@ -8,21 +8,21 @@ and `from_env(**overrides)` win over the environment.
 
 | Variable | Default | Description |
 |---|---|---|
-| `SEARCH_GATEWAY_PROVIDERS` | `tavily,brave,searxng` | Priority order, comma-separated. Providers without credentials are skipped |
+| `SEEKRELAY_PROVIDERS` | `tavily,brave,searxng` | Priority order, comma-separated. Providers without credentials are skipped |
 | `TAVILY_API_KEY` | - | Enables Tavily |
 | `TAVILY_INCLUDE_ANSWER` | `false` | Ask Tavily for a short generated answer (`response.answer`) |
 | `BRAVE_API_KEY` | - | Enables Brave. `BRAVE_SEARCH_API_KEY` is accepted as an alias |
 | `SEARXNG_BASE_URL` | - | Enables SearXNG, e.g. `http://127.0.0.1:8888` |
 | `SEARXNG_ENGINES` | instance default | Comma-separated engine names |
 | `SEARXNG_AUTH_HEADER` | - | Full `Authorization` header value for a protected instance (e.g. `Basic dXNlcjpwYXNz`) |
-| `SEARCH_GATEWAY_TIMEOUT` | `20` | Per-request timeout in seconds |
-| `SEARCH_GATEWAY_MAX_ATTEMPTS` | `2` | Attempts per provider for retryable errors (1 = no retries) |
-| `SEARCH_GATEWAY_CACHE_TTL` | `600` | Seconds to cache identical queries; `0` disables the cache |
-| `SEARCH_GATEWAY_COOLDOWN` | `300` | Seconds to skip a provider after an auth or quota error |
-| `SEARCH_GATEWAY_PII_GUARD` | `true` | `false` disables the PII guard |
+| `SEEKRELAY_TIMEOUT` | `20` | Per-request timeout in seconds |
+| `SEEKRELAY_MAX_ATTEMPTS` | `2` | Attempts per provider for retryable errors (1 = no retries) |
+| `SEEKRELAY_CACHE_TTL` | `600` | Seconds to cache identical queries; `0` disables the cache |
+| `SEEKRELAY_COOLDOWN` | `300` | Seconds to skip a provider after an auth or quota error |
+| `SEEKRELAY_PII_GUARD` | `true` | `false` disables the PII guard |
 
 Boolean values accept `true/false`, `1/0`, `yes/no`, `on/off`. An empty value means
-"use the default" (so `SEARCH_GATEWAY_PII_GUARD=` keeps the guard on). Numbers must be
+"use the default" (so `SEEKRELAY_PII_GUARD=` keeps the guard on). Numbers must be
 finite and non-negative. Invalid values raise `ConfigurationError` at start-up rather
 than being silently ignored. Provider names are case-insensitive.
 
@@ -32,8 +32,8 @@ The CLI accepts `--env-file .env`. In code:
 
 ```python
 import os
-from search_gateway import SearchGateway
-from search_gateway.config import read_env_file
+from seekrelay import SearchGateway
+from seekrelay.config import read_env_file
 
 env = {**read_env_file(".env"), **os.environ}  # real environment wins
 gateway = SearchGateway.from_env(env)
@@ -90,14 +90,14 @@ not closed by the provider) and `user_agent`.
 
 ## Logging
 
-The library logs to the `search_gateway` logger and is silent unless the application
+The library logs to the `seekrelay` logger and is silent unless the application
 configures logging:
 
 ```python
 import logging
 
 logging.basicConfig(level=logging.INFO)  # fallbacks and retries
-logging.getLogger("search_gateway").setLevel(logging.DEBUG)  # cache hits, skipped params
+logging.getLogger("seekrelay").setLevel(logging.DEBUG)  # cache hits, skipped params
 ```
 
 Levels: `WARNING` for provider failures, `INFO` for retries and served-after-fallback,
@@ -109,8 +109,8 @@ never logged.
 **Cheapest first for a scheduled job**
 
 ```bash
-SEARCH_GATEWAY_PROVIDERS=searxng,brave,tavily
-SEARCH_GATEWAY_CACHE_TTL=3600
+SEEKRELAY_PROVIDERS=searxng,brave,tavily
+SEEKRELAY_CACHE_TTL=3600
 ```
 
 **Interactive agent, fail fast**

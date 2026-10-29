@@ -3,7 +3,7 @@
 Variables (all optional except at least one provider's credentials):
 
 =============================== ===================================================
-``SEARCH_GATEWAY_PROVIDERS``    Priority order, comma-separated.
+``SEEKRELAY_PROVIDERS``         Priority order, comma-separated.
                                 Default ``tavily,brave,searxng``.
 ``TAVILY_API_KEY``              Enables Tavily.
 ``TAVILY_INCLUDE_ANSWER``       ``true`` to request Tavily's short answer.
@@ -11,14 +11,14 @@ Variables (all optional except at least one provider's credentials):
 ``SEARXNG_BASE_URL``            Enables SearXNG, e.g. ``http://127.0.0.1:8888``.
 ``SEARXNG_ENGINES``             Comma-separated engine list (instance default if empty).
 ``SEARXNG_AUTH_HEADER``         Value for an ``Authorization`` header (reverse proxy).
-``SEARCH_GATEWAY_TIMEOUT``      Per-request timeout in seconds. Default ``20``.
-``SEARCH_GATEWAY_MAX_ATTEMPTS`` Attempts per provider. Default ``2``.
-``SEARCH_GATEWAY_CACHE_TTL``    Cache TTL in seconds, ``0`` disables. Default ``600``.
-``SEARCH_GATEWAY_COOLDOWN``     Cooldown after auth/quota errors. Default ``300``.
-``SEARCH_GATEWAY_PII_GUARD``    ``false`` disables the PII guard. Default ``true``.
+``SEEKRELAY_TIMEOUT``           Per-request timeout in seconds. Default ``20``.
+``SEEKRELAY_MAX_ATTEMPTS``      Attempts per provider. Default ``2``.
+``SEEKRELAY_CACHE_TTL``         Cache TTL in seconds, ``0`` disables. Default ``600``.
+``SEEKRELAY_COOLDOWN``          Cooldown after auth/quota errors. Default ``300``.
+``SEEKRELAY_PII_GUARD``         ``false`` disables the PII guard. Default ``true``.
 =============================== ===================================================
 
-Providers listed in ``SEARCH_GATEWAY_PROVIDERS`` but missing credentials are skipped
+Providers listed in ``SEEKRELAY_PROVIDERS`` but missing credentials are skipped
 with an INFO log, so one ``.env`` works on machines with different keys.
 """
 
@@ -44,7 +44,7 @@ __all__ = [
     "read_env_file",
 ]
 
-logger = logging.getLogger("search_gateway")
+logger = logging.getLogger("seekrelay")
 
 DEFAULT_PROVIDER_ORDER = ("tavily", "brave", "searxng")
 
@@ -134,13 +134,13 @@ def build_providers_from_env(
     if order:
         names = [name.strip().lower() for name in order if name.strip()]
     else:
-        names = parse_csv(env.get("SEARCH_GATEWAY_PROVIDERS")) or list(DEFAULT_PROVIDER_ORDER)
+        names = parse_csv(env.get("SEEKRELAY_PROVIDERS")) or list(DEFAULT_PROVIDER_ORDER)
     unknown = sorted(set(names) - set(DEFAULT_PROVIDER_ORDER))
     if unknown:
         raise ConfigurationError(
             f"Unknown provider(s): {', '.join(unknown)}. Known: {', '.join(DEFAULT_PROVIDER_ORDER)}"
         )
-    timeout = _number(env, "SEARCH_GATEWAY_TIMEOUT", 20.0)
+    timeout = _number(env, "SEEKRELAY_TIMEOUT", 20.0)
 
     providers: list[SearchProvider] = []
     for name in dict.fromkeys(names):
@@ -193,10 +193,10 @@ def build_gateway_from_env(env: Mapping[str, str] | None = None, **overrides: An
     order = overrides.pop("order", None)
     providers = build_providers_from_env(env, order=order)
     settings: dict[str, Any] = {
-        "retry": RetryPolicy(max_attempts=_number(env, "SEARCH_GATEWAY_MAX_ATTEMPTS", 2, int) or 1),
-        "cache_ttl": _number(env, "SEARCH_GATEWAY_CACHE_TTL", 600.0) or None,
-        "cooldown_seconds": _number(env, "SEARCH_GATEWAY_COOLDOWN", 300.0),
-        "pii_guard": PIIGuard() if _bool(env, "SEARCH_GATEWAY_PII_GUARD", True) else None,
+        "retry": RetryPolicy(max_attempts=_number(env, "SEEKRELAY_MAX_ATTEMPTS", 2, int) or 1),
+        "cache_ttl": _number(env, "SEEKRELAY_CACHE_TTL", 600.0) or None,
+        "cooldown_seconds": _number(env, "SEEKRELAY_COOLDOWN", 300.0),
+        "pii_guard": PIIGuard() if _bool(env, "SEEKRELAY_PII_GUARD", True) else None,
     }
     settings.update(overrides)
     return SearchGateway(providers, **settings)

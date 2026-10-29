@@ -14,7 +14,7 @@ import asyncio
 import json
 from typing import Any
 
-from search_gateway import (
+from seekrelay import (
     AllProvidersFailedError,
     InvalidRequestError,
     QueryRejectedError,

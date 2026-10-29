@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from search_gateway import (
+from seekrelay import (
     AllProvidersFailedError,
     AuthenticationError,
     ConfigurationError,
@@ -325,7 +325,7 @@ async def test_unexpected_provider_exception_falls_back(
 
 
 async def test_unsupported_request_falls_back(clock: FakeClock, sleep: FakeSleep) -> None:
-    from search_gateway import UnsupportedOperationError
+    from seekrelay import UnsupportedOperationError
 
     a = FakeProvider("a", UnsupportedOperationError("a", "query too long for this provider"))
     b = FakeProvider("b", ["https://b.com"])
