@@ -78,7 +78,9 @@ class SearXNGProvider(SearchProvider):
 
     Args:
         base_url: Instance root, e.g. ``http://127.0.0.1:8888``.
-        engines: Optional list of engine names to query (default: instance defaults).
+        engines: Optional list of engine names for web search; they replace the instance's
+            default engines. News searches (``topic="news"``) keep using the instance's
+            news engines.
         safesearch: 0 (off), 1 (moderate), 2 (strict).
         headers: Extra headers, e.g. ``Authorization`` for an instance behind a reverse
             proxy with basic auth.
@@ -114,16 +116,19 @@ class SearXNGProvider(SearchProvider):
         params: dict[str, str] = {
             "q": text,
             "format": "json",
-            "categories": "news" if query.topic is Topic.NEWS else "general",
             "safesearch": str(self._safesearch),
             "pageno": "1",
         }
+        if self._engines and query.topic is Topic.GENERAL:
+            # Not together with "categories": SearXNG would add every engine of the
+            # category to this list, so the pinned engines would not restrict anything.
+            params["engines"] = ",".join(self._engines)
+        else:
+            params["categories"] = "news" if query.topic is Topic.NEWS else "general"
         if query.time_range is not None:
             params["time_range"] = query.time_range.value
         if query.language:
             params["language"] = self.build_language(query.language, query.country)
-        if self._engines:
-            params["engines"] = ",".join(self._engines)
         return params
 
     @staticmethod

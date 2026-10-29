@@ -76,6 +76,20 @@ With the default engine set, almost all results came from the `brave` engine:
   not bursts. Keep a paid provider behind it in `SEEKRELAY_PROVIDERS`.
 - **Engine choice depends on the IP address.** Check the engines from the machine that
   runs SearXNG before pinning `SEARXNG_ENGINES`.
+- **`SEARXNG_ENGINES` did not pin anything.** The provider sent `categories=general`
+  together with `engines=...`, and SearXNG adds every engine of a requested category to
+  an explicit list: `engines=brave,google cse` alone returned nothing from suspended
+  engines, with `categories=general` it returned 10 results from `duckduckgo`. *Fixed
+  after this run:* with pinned engines, web searches send only `engines`.
+
+### Re-check after the fixes
+
+Same instance, same day, with the two fixes above:
+
+| Check | Before | After |
+|---|---|---|
+| `engines=["bing"]` | results from the default engines as well | 10 results, all from `bing` |
+| Search while the pinned engine is suspended, backup provider behind SearXNG | 1.7-2.9 s per call (retry, then fallback) | first call 4 ms (one request, no retry), then 0 ms: SearXNG skipped for 180 s |
 
 ### Reproducing
 

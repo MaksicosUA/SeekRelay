@@ -13,7 +13,7 @@ and `from_env(**overrides)` win over the environment.
 | `TAVILY_INCLUDE_ANSWER` | `false` | Ask Tavily for a short generated answer (`response.answer`) |
 | `BRAVE_API_KEY` | - | Enables Brave. `BRAVE_SEARCH_API_KEY` is accepted as an alias |
 | `SEARXNG_BASE_URL` | - | Enables SearXNG, e.g. `http://127.0.0.1:8888` |
-| `SEARXNG_ENGINES` | instance default | Comma-separated engine names |
+| `SEARXNG_ENGINES` | instance default | Comma-separated engine names for web search; they replace the instance's default engines. News searches use the instance's news engines |
 | `SEARXNG_AUTH_HEADER` | - | Full `Authorization` header value for a protected instance (e.g. `Basic dXNlcjpwYXNz`) |
 | `SEEKRELAY_TIMEOUT` | `20` | Per-request timeout in seconds |
 | `SEEKRELAY_MAX_ATTEMPTS` | `2` | Attempts per provider for retryable errors (1 = no retries) |

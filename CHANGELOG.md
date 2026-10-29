@@ -25,6 +25,10 @@ All notable changes to this project are documented here. The format follows
   `relay`.
 
 ### Fixed
+- SearXNG: `engines` / `SEARXNG_ENGINES` did not restrict the engines, because the
+  provider also sent `categories=general` and SearXNG adds every engine of a requested
+  category to an explicit engine list. Web searches with pinned engines now send only
+  `engines`; news searches keep `categories=news`.
 - SearXNG: when a search returned nothing because the upstream engines were suspended or
   behind a CAPTCHA (SearXNG keeps them out for 3 to 60 minutes), the provider raised a
   retryable `ProviderUnavailableError`. Every search during the suspension lost 1.7-2.9 s

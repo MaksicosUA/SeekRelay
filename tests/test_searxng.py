@@ -69,11 +69,11 @@ async def test_params_and_parsing() -> None:
     assert dict(rec.last.url.params) == {
         "q": "metasearch",
         "format": "json",
-        "categories": "general",
         "safesearch": "2",
         "pageno": "1",
         "time_range": "year",
         "language": "uk-UA",
+        # No "categories": SearXNG would add the category's engines to this list.
         "engines": "duckduckgo,brave",
     }
     assert [r.url for r in response.results] == [
@@ -104,6 +104,14 @@ def test_language_param_is_valid_for_searxng(
     # SearXNG accepts only ^[a-z]{2,3}(-[a-zA-Z]{2})?$ and answers 400 otherwise.
     query = SearchQuery("q", language=language, country=country)
     assert provider(Recorder(httpx.Response(200))).build_params(query)["language"] == expected
+
+
+def test_categories_only_without_pinned_engines() -> None:
+    rec = Recorder(httpx.Response(200))
+    default = provider(rec).build_params(SearchQuery("q"))
+    assert default["categories"] == "general" and "engines" not in default
+    news = provider(rec, engines=["brave"]).build_params(SearchQuery("q", topic="news"))  # type: ignore[arg-type]
+    assert news["categories"] == "news" and "engines" not in news
 
 
 async def test_include_domains_become_site_operators() -> None:

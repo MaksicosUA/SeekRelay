@@ -145,11 +145,11 @@ fewer than `max_results`.
 | `text` | `q` |
 | `include_domains` | `site:a OR site:b` appended to `q` (honoured by most engines) + client-side filter |
 | `exclude_domains` | client-side filter only |
-| `topic` | `categories=general` / `categories=news` |
+| `topic` | `categories=general` / `categories=news`; with pinned engines, web search sends only `engines` (see below) |
 | `time_range` | `time_range` (only engines that support it apply it) |
 | `language` (+ `country`) | `language=uk` or `language=uk-UA`. SearXNG accepts only `xx` / `xx-YY` (anything else is HTTP 400), so a two-letter region in `language` wins over `country` (`en-gb` -> `en-GB`) and other subtags are dropped (`zh-hans` -> `zh`) |
 | `max_results` | client-side slice of page 1 |
-| provider option `engines` | `engines=duckduckgo,brave,...` |
+| provider option `engines` | `engines=duckduckgo,brave,...` for web search, sent without `categories`: SearXNG adds every engine of a requested category to an explicit engine list, so the pin would not restrict anything. News searches keep `categories=news` and the instance's news engines |
 | provider option `safesearch` | `safesearch=0/1/2` |
 
 Results keep `source_engines` (which upstream engines returned the URL) and SearXNG's
