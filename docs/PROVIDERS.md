@@ -147,7 +147,7 @@ fewer than `max_results`.
 | `exclude_domains` | client-side filter only |
 | `topic` | `categories=general` / `categories=news` |
 | `time_range` | `time_range` (only engines that support it apply it) |
-| `language` (+ `country`) | `language=uk` or `language=uk-UA` |
+| `language` (+ `country`) | `language=uk` or `language=uk-UA`. SearXNG accepts only `xx` / `xx-YY` (anything else is HTTP 400), so a two-letter region in `language` wins over `country` (`en-gb` -> `en-GB`) and other subtags are dropped (`zh-hans` -> `zh`) |
 | `max_results` | client-side slice of page 1 |
 | provider option `engines` | `engines=duckduckgo,brave,...` |
 | provider option `safesearch` | `safesearch=0/1/2` |

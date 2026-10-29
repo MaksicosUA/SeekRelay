@@ -82,6 +82,27 @@ async def test_params_and_parsing() -> None:
     assert response.results[0].score == 2.5
 
 
+@pytest.mark.parametrize(
+    ("language", "country", "expected"),
+    [
+        ("uk", None, "uk"),
+        ("uk", "ua", "uk-UA"),
+        ("en-us", None, "en-US"),
+        ("en-gb", "us", "en-GB"),
+        ("pt-br", "br", "pt-BR"),
+        ("zh-hans", None, "zh"),
+        ("zh-hans", "cn", "zh-CN"),
+        ("es-419", None, "es"),
+    ],
+)
+def test_language_param_is_valid_for_searxng(
+    language: str, country: str | None, expected: str
+) -> None:
+    # SearXNG accepts only ^[a-z]{2,3}(-[a-zA-Z]{2})?$ and answers 400 otherwise.
+    query = SearchQuery("q", language=language, country=country)
+    assert provider(Recorder(httpx.Response(200))).build_params(query)["language"] == expected
+
+
 async def test_include_domains_become_site_operators() -> None:
     rec = Recorder(httpx.Response(200, json=RESULTS))
     query = SearchQuery("q", include_domains=["github.com", "docs.searxng.org"], topic="news")  # type: ignore[arg-type]

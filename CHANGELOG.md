@@ -11,6 +11,11 @@ All notable changes to this project are documented here. The format follows
   environment variables use the `SEEKRELAY_` prefix (was `SEARCH_GATEWAY_`), the library
   logger is `seekrelay` and the default User-Agent is `seekrelay/<version>`.
 
+### Fixed
+- SearXNG: `language` values with a region or script subtag (`en-us`, `pt-br` with a
+  country, `zh-hans`) were sent as codes SearXNG rejects with HTTP 400, which stopped the
+  search without falling back. The provider now always sends `xx` or `xx-YY`.
+
 ## [0.1.0] - 2026-10-28
 
 ### Added

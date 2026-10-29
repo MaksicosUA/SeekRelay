@@ -95,12 +95,25 @@ class SearXNGProvider(SearchProvider):
         if query.time_range is not None:
             params["time_range"] = query.time_range.value
         if query.language:
-            params["language"] = (
-                f"{query.language}-{query.country.upper()}" if query.country else query.language
-            )
+            params["language"] = self.build_language(query.language, query.country)
         if self._engines:
             params["engines"] = ",".join(self._engines)
         return params
+
+    @staticmethod
+    def build_language(language: str, country: str | None) -> str:
+        """Return a code SearXNG accepts: ``xx`` or ``xx-YY`` (``uk`` + ``ua`` -> ``uk-UA``).
+
+        SearXNG answers 400 for anything else, and a 400 does not fall back, so a region
+        that is already part of ``language`` wins over ``country`` and subtags that are
+        not two-letter regions (``zh-hans``, ``es-419``) are dropped.
+        """
+        base, _, region = language.partition("-")
+        if len(region) == 2 and region.isalpha():
+            return f"{base}-{region.upper()}"
+        if country:
+            return f"{base}-{country.upper()}"
+        return base
 
     async def search(self, query: SearchQuery) -> SearchResponse:
         started = time.perf_counter()
