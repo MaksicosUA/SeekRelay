@@ -11,7 +11,7 @@
 4. **Small and auditable.** One runtime dependency (`httpx`), no global state, strict
    typing, every network path testable with a mock transport.
 
-Non-goals for v0.1: crawling whole sites, a shared/distributed cache, ranking fusion
+Non-goals for now: crawling whole sites, a shared/distributed cache, ranking fusion
 across providers (results come from the first provider that succeeds).
 
 ## Components

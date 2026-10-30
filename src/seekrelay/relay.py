@@ -303,7 +303,7 @@ class SeekRelay:
     ) -> ExtractResponse:
         """Fetch clean page content (Markdown) for one or more URLs.
 
-        Only providers with ``supports_extract`` take part (Tavily in v0.1).
+        Only providers with ``supports_extract`` take part (so far only Tavily).
 
         Raises:
             ValueError: a URL is not an absolute http(s) URL.

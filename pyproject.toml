@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "seekrelay"
-version = "0.1.0"
+version = "0.2.0"
 description = "One async interface for AI-agent web search: Tavily, Brave Search and self-hosted SearXNG with fallback, retries, caching and a PII guard."
 readme = "README.md"
 requires-python = ">=3.10"

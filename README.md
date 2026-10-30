@@ -1,5 +1,7 @@
 # SeekRelay
 
+[![CI](https://github.com/MaksicosUA/SeekRelay/actions/workflows/ci.yml/badge.svg)](https://github.com/MaksicosUA/SeekRelay/actions/workflows/ci.yml)
+
 One async Python interface for web search in AI agents and RAG pipelines, with
 **Tavily**, **Brave Search** and a self-hosted **SearXNG** behind it.
 

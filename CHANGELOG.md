@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-30
+
 ### Added
 - `SeekRelay(time_budget=...)` / `SEEKRELAY_TIME_BUDGET`: an upper bound for one
   `search` or `extract` call across all providers, retries and back-off. Without it a call
