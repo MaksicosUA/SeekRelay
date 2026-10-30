@@ -95,16 +95,21 @@ raised for the relay to retry or fall back.
 | `time_range` | `freshness`: `pd` / `pw` / `pm` / `py` |
 | `country` | `country` (upper-case), only for codes in `BRAVE_COUNTRIES`; others (e.g. `ua`, `kz`) are skipped with a DEBUG log because Brave answers them with 422 |
 | `language` | `search_lang`, only for Brave's own codes in `BRAVE_LANGUAGES`; aliases `ja`->`jp`, `zh`->`zh-hans`, `pt`->`pt-pt`, `no`->`nb`; others skipped |
-| `include_domains` (exactly one) | `site:domain` appended to `q` |
+| `include_domains` | `site:domain` appended to `q`; several are joined with `OR` |
 | `exclude_domains` | `-site:domain` appended to `q` |
 | provider option `safesearch` | `safesearch` (`off` / `moderate` / `strict`) |
 | provider option `extra_snippets` | `extra_snippets=true`, joined into the snippet with ` … ` |
 | (always, web) | `text_decorations=false`; remaining `<strong>` tags and entities are stripped anyway |
 
-**Domain filtering.** Brave has no domain filter parameter. With several include domains
-no operator is added; in every case results are filtered strictly on the client side and
-the provider requests 20 results so that enough survive. A filtered search can return
-fewer than `max_results`.
+**Domain filtering.** Brave has no domain filter parameter, so `site:` operators do the
+narrowing: `python site:a.com OR site:b.com`. If several include domains would exceed the
+query limits, the operators are left out instead of failing the search. In every case
+results are filtered strictly on the client side and the provider requests 20 results so
+that enough survive. A filtered search can return fewer than `max_results`.
+
+Brave documents `site:` and `OR` separately. The combination is confirmed on its web
+search through SearXNG (28 of 28 results on the requested domains, see
+[LIVE_CHECK.md](LIVE_CHECK.md)), but has not yet been tried on the Search API.
 
 ### Status codes
 

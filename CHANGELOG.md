@@ -28,6 +28,10 @@ All notable changes to this project are documented here. The format follows
   `relay`.
 
 ### Fixed
+- Brave: with several `include_domains` the query carried no `site:` operator, so 20 general
+  results were filtered locally and often almost nothing survived. Domains are now sent as
+  `site:a OR site:b`. If they exceed Brave's query limits, the operators are left out
+  rather than failing the search. Not yet tried on the Search API itself.
 - SearXNG: `engines` / `SEARXNG_ENGINES` did not restrict the engines, because the
   provider also sent `categories=general` and SearXNG adds every engine of a requested
   category to an explicit engine list. Web searches with pinned engines now send only

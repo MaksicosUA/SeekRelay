@@ -89,7 +89,7 @@ async def test_domain_filters_use_operators_and_client_side_filtering() -> None:
     )
     response = await provider(rec).search(query)
     params = dict(rec.last.url.params)
-    assert params["q"] == "python -site:spam.com"  # several includes -> no OR operator
+    assert params["q"] == "python site:djinni.co OR site:dou.ua -site:spam.com"
     assert params["count"] == "20"  # over-fetch so enough results survive filtering
     assert [r.url for r in response.results] == [
         "https://djinni.co/jobs/1",
@@ -147,6 +147,15 @@ async def test_error_mapping(status: int, error: type[Exception]) -> None:
     rec = Recorder(httpx.Response(status, json={"error": {"detail": "nope", "code": "X"}}))
     with pytest.raises(error, match="nope"):
         await provider(rec).search(SearchQuery("q"))
+
+
+async def test_too_many_include_domains_drop_the_operators_not_the_search() -> None:
+    domains = [f"site{i}.example.com" for i in range(30)]  # over 400 characters as operators
+    rec = Recorder(httpx.Response(200, json=WEB_OK))
+    query = SearchQuery("python", include_domains=domains, exclude_domains=["spam.com"])
+    await provider(rec).search(query)
+    assert dict(rec.last.url.params)["q"] == "python -site:spam.com"
+    assert dict(rec.last.url.params)["count"] == "20"  # the client-side filter still applies
 
 
 async def test_too_long_query_with_operators_is_unsupported_not_invalid() -> None:

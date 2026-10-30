@@ -76,6 +76,10 @@ _TAG_RE = re.compile(r"<[^>]+>")
 _MAX_QUERY_WORDS = 50
 
 
+def _within_limits(text: str) -> bool:
+    return len(text) <= MAX_QUERY_LENGTH and len(text.split()) <= _MAX_QUERY_WORDS
+
+
 def _clean(text: Any) -> str:
     """Strip highlight markup (``<strong>``) and HTML entities from Brave snippets."""
     return html.unescape(_TAG_RE.sub("", str(text or ""))).strip()
@@ -85,9 +89,9 @@ class BraveProvider(SearchProvider):
     """Brave web and news search.
 
     Brave has no server-side domain filter, so domain filters are applied in two layers:
-    a ``site:`` / ``-site:`` operator in the query (best effort, single include domain
-    only) and a strict client-side filter on the results. When a filter is active the
-    provider over-fetches 20 results so that enough survive filtering.
+    ``site:`` (several domains joined with ``OR``) and ``-site:`` operators in the query,
+    which are best effort, and a strict client-side filter on the results. When a filter
+    is active the provider over-fetches 20 results so that enough survive filtering.
 
     Brave does not extract page content; use Tavily (or another extractor) for that.
 
@@ -124,15 +128,21 @@ class BraveProvider(SearchProvider):
 
     @staticmethod
     def build_query_text(query: SearchQuery) -> str:
-        parts = [query.text]
-        if len(query.include_domains) == 1:
-            parts.append(f"site:{query.include_domains[0]}")
-        parts.extend(f"-site:{domain}" for domain in query.exclude_domains)
-        return " ".join(parts)
+        excludes = [f"-site:{domain}" for domain in query.exclude_domains]
+        without_sites = " ".join([query.text, *excludes])
+        if not query.include_domains:
+            return without_sites
+        sites = " OR ".join(f"site:{domain}" for domain in query.include_domains)
+        text = " ".join([query.text, sites, *excludes])
+        if len(query.include_domains) > 1 and not _within_limits(text):
+            # Too many domains for one query. The client-side filter still applies, so
+            # this only costs results, while failing would lose the search altogether.
+            return without_sites
+        return text
 
     def build_params(self, query: SearchQuery) -> dict[str, str]:
         text = self.build_query_text(query)
-        if len(text) > MAX_QUERY_LENGTH or len(text.split()) > _MAX_QUERY_WORDS:
+        if not _within_limits(text):
             # Not the caller's fault: another provider can still run this query.
             raise UnsupportedOperationError(
                 self.name,
