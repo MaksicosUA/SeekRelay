@@ -14,6 +14,9 @@ All notable changes to this project are documented here. The format follows
   the assumptions in the code.
 
 ### Changed
+- `docs/DEPLOY_SEARXNG.md` and `.env.example` recommend
+  `SEARXNG_ENGINES=brave,bing,duckduckgo,yahoo`, which answered a burst of 12 searches in
+  the live check, and explain how to check engines from your own server.
 - A `RateLimitError` whose `retry_after` is longer than `RetryPolicy.max_delay` now also
   puts the provider into cooldown for `retry_after` seconds (it already fell back without
   waiting), so later calls do not hit a provider that asked to be left alone.

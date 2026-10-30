@@ -58,7 +58,10 @@ Queried one engine at a time (`engines=<name>`, query "python asyncio taskgroup"
 | wikipedia | 0 results (no article for this query; the engine answered) |
 | google | access denied |
 | qwant | access denied |
-| mojeek, startpage | suspended (too many requests) at the time of the test |
+
+`mojeek` and `startpage` are not loaded in this image, so they could not be tested.
+SearXNG ignores unknown names and uses its default engines instead; check a name with
+`/config` first, and look at the engines that really answered.
 
 With the default engine set, almost all results came from the `brave` engine:
 `google cse` was suspended for most of the run and `duckduckgo` often asked for a CAPTCHA.
@@ -90,6 +93,25 @@ Same instance, same day, with the two fixes above:
 |---|---|---|
 | `engines=["bing"]` | results from the default engines as well | 10 results, all from `bing` |
 | Search while the pinned engine is suspended, backup provider behind SearXNG | 1.7-2.9 s per call (retry, then fallback) | first call 4 ms (one request, no retry), then 0 ms: SearXNG skipped for 180 s |
+
+### Recommended engines (2026-10-30)
+
+Same instance, `SEARXNG_ENGINES=brave,bing,duckduckgo,yahoo`, one search per engine
+first, then the set:
+
+| Check | Result |
+|---|---|
+| Each engine alone, sources verified | brave 10 results, 1.1 s; bing 10, 0.4 s; yahoo 7, 0.9 s; duckduckgo CAPTCHA |
+| The set, 15 s between searches | 3 of 3 answered, 0.8-1.1 s, all four engines contributed |
+| The set, burst of 12 without a pause | 12 of 12 answered, median 0.8 s, max 0.9 s |
+| Engines that answered during the burst | bing 12, yahoo 12, brave 8, duckduckgo 2 |
+| `SEARXNG_ENGINES` through the CLI with 2 domains, right after the burst | 5 results, all from `yahoo` and inside the filter |
+
+`brave` and `duckduckgo` still drop out under load, but `bing` and `yahoo` kept the set
+answering. For comparison, the default engines behaved differently between runs: one burst
+stopped answering after about 7 searches, another kept answering for 15 searches because
+`duckduckgo` showed no CAPTCHA that time (`brave` dropped out at search 12). One machine and
+few runs: treat the set as a starting point, not a guarantee.
 
 ### Reproducing
 

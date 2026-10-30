@@ -59,17 +59,31 @@ export SEARXNG_BASE_URL=http://127.0.0.1:8888
 ## 5. Choose engines
 
 Some engines (notably Google) block metasearch traffic quickly. When that happens the
-provider raises `ProviderUnavailableError` ("upstream engines unresponsive") and the
-relay falls back. To reduce it, pin engines that tolerate automated use:
+provider raises an error and the relay falls back; if every engine is blocked, it also
+skips the instance for 3 minutes. To reduce it, pin several engines for web search:
 
 ```bash
-export SEARXNG_ENGINES=duckduckgo,brave,wikipedia,github
+export SEARXNG_ENGINES=brave,bing,duckduckgo,yahoo
 ```
 
-Enabled engines and their names are listed on the instance's preferences page
-(`http://127.0.0.1:8888/preferences`, through the tunnel). Which engines answer depends
-on the server's IP address; [LIVE_CHECK.md](LIVE_CHECK.md) shows one measured example and
-how to test engines one at a time.
+In the [live check](LIVE_CHECK.md), a burst of 12 searches with this set all answered.
+The default engines depend almost entirely on `brave` and `duckduckgo`: one burst stopped
+answering after about 7 searches. `bing` and `yahoo` are disabled by default and only run
+when pinned. News searches keep using the instance's news engines.
+
+Which engines answer depends on the server's IP address, so check them from the server:
+
+```bash
+# Is the name known to this instance? (`enabled: false` is fine for a pinned engine.)
+curl -s http://127.0.0.1:8888/config | jq '.engines[] | select(.name == "bing") | {name, enabled}'
+
+# Which engines really answered?
+seekrelay --providers searxng search "python asyncio taskgroup" --format json | grep -A3 source_engines
+```
+
+SearXNG ignores names it does not know without an error, and if none of the pinned names
+is known it uses its default engines. The `source_engines` of the results show what
+really ran.
 
 ## 6. Exposing it (only if you must)
 

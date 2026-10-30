@@ -207,9 +207,9 @@ src/seekrelay/
 - The cache is per-process and in-memory.
 - `PIIGuard` is a seatbelt for obvious identifiers, not a DLP system.
 
-### Live check (SearXNG, 2026-10-29)
+### Live check (SearXNG, October 2026)
 
-About 50 real requests against the private instance from `deploy/searxng`. Every
+About 100 real requests against the private instance from `deploy/searxng`. Every
 assumption the SearXNG provider makes held: response fields and types, HTTP 400 for
 invalid language codes (which the language fix avoids), `site:a OR site:b` filters
 (28 of 28 results on the requested domains) and punycode filters for internationalised
@@ -219,12 +219,13 @@ domains (30 of 30). Measured on one machine:
 |---|---|
 | Search latency through SeekRelay | 0.45-2.3 s, median about 1.0 s |
 | Cache hit | 0.05 ms |
-| Upstream engines start blocking the instance | after about 7 searches in 10 s |
-| Pace that kept working | one search every 15-20 s |
+| Default engines under a burst | one run stopped answering after about 7 searches in 10 s; in another `brave` dropped out at search 12 and only `duckduckgo` was left |
+| Burst of 12 searches with `SEARXNG_ENGINES=brave,bing,duckduckgo,yahoo` | 12 of 12 answered, median 0.8 s |
+| Pace that kept working with the default engines | one search every 15-20 s |
 | Engines that answered | bing, duckduckgo, yahoo, brave (google and qwant: access denied) |
 
-A private SearXNG suits scheduled jobs and occasional lookups, not bursts; keep a paid
-provider behind it. Full results and how to reproduce them:
+A private SearXNG suits scheduled jobs and occasional lookups better than heavy traffic;
+keep a paid provider behind it. Full results and how to reproduce them:
 [docs/LIVE_CHECK.md](docs/LIVE_CHECK.md).
 
 ## License
