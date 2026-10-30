@@ -12,10 +12,14 @@ All notable changes to this project are documented here. The format follows
 - `SeekRelay(time_budget=...)` / `SEEKRELAY_TIME_BUDGET`: an upper bound for one
   `search` or `extract` call across all providers, retries and back-off. Without it a call
   could take about two minutes with the default settings when every provider is slow.
-- `docs/LIVE_CHECK.md`: results of a live run against a self-hosted SearXNG, compared with
-  the assumptions in the code.
+- `docs/LIVE_CHECK.md`: results of live runs against a self-hosted SearXNG and Tavily,
+  compared with the assumptions in the code.
 
 ### Changed
+- Tavily: every search now sends `include_published_date`, because Tavily otherwise returns
+  dates only for news and `published_at` stayed empty for web results.
+- The docs no longer say that Tavily blocks queries with personal data: it accepted a query
+  with an e-mail address in the live check.
 - `docs/DEPLOY_SEARXNG.md` and `.env.example` recommend
   `SEARXNG_ENGINES=brave,bing,duckduckgo,yahoo`, which answered a burst of 12 searches in
   the live check, and explain how to check engines from your own server.
@@ -30,6 +34,9 @@ All notable changes to this project are documented here. The format follows
   `relay`.
 
 ### Fixed
+- Tavily: `TAVILY_COUNTRY_NAMES` covered 47 of the 166 countries the API accepts, so
+  `country="ru"`, `"br"`, `"cn"` and most others were silently skipped. The table is now
+  complete.
 - Brave: with several `include_domains` the query carried no `site:` operator, so 20 general
   results were filtered locally and often almost nothing survived. Domains are now sent as
   `site:a OR site:b`. If they exceed Brave's query limits, the operators are left out

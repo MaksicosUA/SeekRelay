@@ -115,10 +115,11 @@ Errors outside the provider hierarchy:
 ### Why invalid requests do not fall back
 
 A 400 usually means the request itself is wrong, so the next provider would fail the
-same way. More importantly, a provider may reject a query *on purpose*: Tavily blocks
-queries in which it detects personal data. Falling back would send exactly that query to
-another third party. `fallback_on_invalid_request=True` exists for setups where this
-trade-off is acceptable.
+same way. More importantly, a provider may reject a query *on purpose*, for example when
+it detects personal data, and falling back would send exactly that query to another third
+party. Do not count on such a rejection: in the [live check](LIVE_CHECK.md) Tavily accepted
+a query with an e-mail address, so `PIIGuard` is the layer that stops it.
+`fallback_on_invalid_request=True` exists for setups where this trade-off is acceptable.
 
 ### Retries versus fallback
 

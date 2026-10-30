@@ -126,3 +126,46 @@ seekrelay --providers searxng search "python developer remote" \
 ```
 
 Leave 15-20 s between searches, or the upstream engines start blocking the instance.
+
+## Run of 2026-10-30: Tavily
+
+| | |
+|---|---|
+| Service | Tavily API, free "Researcher" plan (1,000 credits a month) |
+| Client | SeekRelay 0.2.0, the Tavily provider alone unless noted |
+| Machine | The same Linux workstation |
+| Volume | About 30 requests. Each search response reported `usage.credits: 1`. The `/usage` endpoint still showed 0 after the run, so the total could not be confirmed |
+| Not triggered | HTTP 429, 432, 433, 434 |
+
+### Assumptions compared with real responses
+
+| Assumption in the code | Observed | Result |
+|---|---|---|
+| Response fields `results`, `answer`, `request_id`; results with `url`, `title`, `content`, `score` (float), `raw_content` | All present with these types; extra `follow_up_questions`, `images`, `usage`, `id` are ignored | as assumed |
+| `language` is passed through | `uk`, `en-us`, `zh-hans`, `pt-br` all accepted | as assumed; no SearXNG-style 400 |
+| `country` uses Tavily's lower-case names | All our names are valid | as assumed, but the table had only 47 of 166 countries. *Fixed after this run:* the table is complete, `ru` and `br` are accepted |
+| `country` is sent only with `topic=general` | News search with `country="de"` worked with the parameter skipped | as assumed |
+| Domain filters are native | 1 domain: 10 of 10; 2 domains: 10 of 10; `exclude_domains`: nothing leaked | as assumed |
+| Internationalised domains work as punycode | Punycode: 5 of 5 on the domain, URLs returned in punycode. Unicode spelling: 0 results | as assumed; confirms the punycode choice |
+| `published_date` is available | Only for news: 0 dated results on web search | wrong for web search. *Fixed after this run:* the provider sends `include_published_date`, and dates then appeared on 5 of 7 web results |
+| `max_results` results come back | 2-5 for `max_results=5`, 11 for 20, 3 for 10 with an exclusion; the number varied between identical requests | it is an upper bound; documented now |
+| `include_answer` | 534 characters, included as untrusted text by `to_llm_context()` | as assumed |
+| `include_raw_content` | Filled for 2 of 2 results | as assumed |
+| `/extract` merges pages and `failed_results` | 4 URLs: 3 pages (Markdown), 1 unknown host in `failed` | as assumed |
+| 401 maps to `AuthenticationError` with cooldown and fallback | Bad key: served by the backup provider, cooldown 300 s | as assumed |
+| Fallback in the CLI, `./.env` read automatically | SearXNG down: `ConnectError`, then served by Tavily | as assumed |
+| Tavily blocks queries with personal data | A query with a made-up e-mail address was accepted (3 results) | **not confirmed on this plan.** `PIIGuard` is what protects such queries; the docs are corrected |
+
+### Numbers
+
+| Measurement | Value |
+|---|---|
+| Search through SeekRelay | 1.2-2.9 s, median 1.9 s (12 searches) |
+| Search with an internationalised domain filter | 5.0 s (one search) |
+| `depth="advanced"` | 3.9 s (one search) |
+| Extract 4 URLs | 0.9 s |
+| Extract 1 URL with `advanced=True`, already fetched | 0.16 s |
+
+The client-side figures include the network and TLS; Tavily's own `response_time` for one
+raw search was 0.99 s. `SEEKRELAY_TIME_BUDGET=10` to `15` also fits Tavily, with room for
+one fallback.

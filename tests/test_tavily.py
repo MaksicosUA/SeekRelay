@@ -17,6 +17,7 @@ from seekrelay import (
     SearchQuery,
     TavilyProvider,
 )
+from seekrelay.providers.tavily import TAVILY_COUNTRY_NAMES
 
 from .conftest import Recorder
 
@@ -76,6 +77,7 @@ async def test_search_builds_payload_and_maps_results() -> None:
         "topic": "general",
         "include_answer": "basic",
         "include_raw_content": "markdown",
+        "include_published_date": True,
         "time_range": "month",
         "include_domains": ["fastapi.tiangolo.com"],
         "exclude_domains": ["spam.com"],
@@ -96,6 +98,13 @@ async def test_search_builds_payload_and_maps_results() -> None:
     assert first.raw_content == "# FastAPI"
     assert first.published_at == "2026-10-01"
     assert response.results[1].score is None
+
+
+def test_country_table_covers_the_api_list() -> None:
+    assert len(set(TAVILY_COUNTRY_NAMES.values())) == 166  # the `country` enum, October 2026
+    assert TAVILY_COUNTRY_NAMES["ru"] == "russia"
+    assert TAVILY_COUNTRY_NAMES["br"] == "brazil"
+    assert TAVILY_COUNTRY_NAMES["gb"] == TAVILY_COUNTRY_NAMES["uk"] == "united kingdom"
 
 
 async def test_minimal_payload_and_country_rules() -> None:

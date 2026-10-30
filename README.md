@@ -202,16 +202,15 @@ src/seekrelay/
 ## Status and limitations
 
 - All providers are covered by tests against mocked HTTP responses built from the
-  providers' documentation (October 2026). SearXNG has also been checked live; Tavily and
-  the Brave Search API have not yet, so run a smoke test with your keys before relying
-  on them.
+  providers' documentation (October 2026). SearXNG and Tavily have also been checked live;
+  the Brave Search API has not yet, so run a smoke test with your key before relying on it.
 - Only Tavily implements `extract`. Brave and SearXNG return snippets.
 - The cache is per-process and in-memory.
 - `PIIGuard` is a seatbelt for obvious identifiers, not a DLP system.
 
-### Live check (SearXNG, October 2026)
+### Live check (October 2026)
 
-About 100 real requests against the private instance from `deploy/searxng`. Every
+**SearXNG.** About 100 real requests against the private instance from `deploy/searxng`. Every
 assumption the SearXNG provider makes held: response fields and types, HTTP 400 for
 invalid language codes (which the language fix avoids), `site:a OR site:b` filters
 (28 of 28 results on the requested domains) and punycode filters for internationalised
@@ -227,7 +226,21 @@ domains (30 of 30). Measured on one machine:
 | Engines that answered | bing, duckduckgo, yahoo, brave (google and qwant: access denied) |
 
 A private SearXNG suits scheduled jobs and occasional lookups better than heavy traffic;
-keep a paid provider behind it. Full results and how to reproduce them:
+keep a paid provider behind it.
+
+**Tavily.** About 30 real requests on the free plan. Response fields, language codes, domain
+filters (10 of 10 results on the requested domains, punycode included), extraction and the
+fallback after a bad key all worked.
+
+| | |
+|---|---|
+| Search latency through SeekRelay | 1.2-2.9 s, median 1.9 s |
+| `depth="advanced"` | 3.9 s |
+| Extracting 4 URLs | 0.9 s: 3 pages, 1 reported as failed |
+| Results for `max_results=5` / `20` | 2-5 / 11: an upper bound, not a promise |
+
+Tavily accepted a query with an e-mail address, so rely on `PIIGuard` rather than on
+provider-side checks. Full results and how to reproduce them:
 [docs/LIVE_CHECK.md](docs/LIVE_CHECK.md).
 
 ## License

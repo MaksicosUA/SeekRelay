@@ -58,7 +58,7 @@ is never stored in the exception, so logging it is safe.
 
 | Provider | Where queries go | Notes |
 |---|---|---|
-| Tavily | Tavily's cloud (owned by Nebius) | SOC 2 / ISO 27001 / GDPR claims; zero data retention and enterprise privacy terms are plan-dependent; also blocks some PII server-side |
+| Tavily | Tavily's cloud (owned by Nebius) | SOC 2 / ISO 27001 / GDPR claims; zero data retention and enterprise privacy terms are plan-dependent. Do not count on server-side PII blocking: in the live check a query with an e-mail address was accepted |
 | Brave | Brave's API | Independent index; SOC 2 Type II |
 | SearXNG | Your server, then the upstream engines it queries | Upstream engines see the query from your server's IP, not your identity |
 

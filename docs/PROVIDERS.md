@@ -32,13 +32,14 @@ often; check the official pages before budgeting.
 |---|---|
 | `text` | `query` |
 | `depth` | `search_depth` (`basic` = 1 credit, `advanced` = 2 credits) |
-| `max_results` | `max_results` |
+| `max_results` | `max_results`. An upper bound: in the live check Tavily returned 2-5 results for 5 and 11 for 20, and the number varied between identical requests |
 | `topic` | `topic` (`general` / `news`) |
 | `time_range` | `time_range` |
 | `include_domains` / `exclude_domains` | same names (native, up to 300 / 150 domains) |
 | `language` | `language` |
 | `country` | `country` as a lower-case English name via `TAVILY_COUNTRY_NAMES` (`ua` -> `ukraine`); only sent with `topic=general`; unknown codes are skipped |
 | `include_raw_content` | `include_raw_content: "markdown"` |
+| (always) | `include_published_date: true` (a beta parameter), because Tavily otherwise sends dates only for news; `published_at` stays empty when Tavily has no date |
 | provider option `include_answer=True` | `include_answer: "basic"` |
 
 `/extract`: URLs are de-duplicated and sent in batches of 20 (the documented maximum),
@@ -52,7 +53,7 @@ raised for the relay to retry or fall back.
 
 | Code | Meaning | Exception |
 |---|---|---|
-| 400 | invalid request (also: query blocked because of PII) | `InvalidRequestError` |
+| 400 | invalid request (may also be a query refused on purpose) | `InvalidRequestError` |
 | 401 | missing / invalid key | `AuthenticationError` |
 | 422 | validation error (`detail` list) | `InvalidRequestError` |
 | 429 | rate limit, `Retry-After` header | `RateLimitError` |
