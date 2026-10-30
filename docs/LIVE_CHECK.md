@@ -9,7 +9,7 @@ assumptions in the code can be compared with reality.
 | | |
 |---|---|
 | Instance | `deploy/searxng` from this repository, image `searxng/searxng:latest` (2026.10.29-cff884f98), default engines, bound to `127.0.0.1:8888` |
-| Client | SeekRelay at commit `e3a681f`, SearXNG as the only provider |
+| Client | SeekRelay at commit `c77f771`, SearXNG as the only provider |
 | Machine | One Linux workstation. Engine availability depends on the IP address, so other machines can see different results |
 | Volume | About 50 requests over 20 minutes |
 | Not covered | Tavily and the Brave Search API (no keys were available) |
