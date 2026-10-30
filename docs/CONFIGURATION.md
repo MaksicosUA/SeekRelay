@@ -29,23 +29,37 @@ than being silently ignored. Provider names are case-insensitive.
 
 ### `.env` files
 
-The CLI reads `./.env` from the current directory if it exists; `--env-file PATH` reads
-another file instead. In code, pass the file explicitly:
+No file is read unless you name it. `./.env` in the current directory is ignored, because
+it may belong to a repository you have just cloned, and it could send your queries elsewhere
+or switch the PII guard off. If no provider is configured and `./.env` exists, the CLI says
+so. Name the file before the command:
+
+```bash
+seekrelay --env-file .env search "python asyncio taskgroup"
+```
+
+In code, use an absolute path. A relative one resolves against the working directory, and
+an agent process often inherits the directory of the repository it works in:
 
 ```python
+from pathlib import Path
+
 from seekrelay import SeekRelay
 
-relay = SeekRelay.from_env(env_file=".env")  # real environment wins
+relay = SeekRelay.from_env(env_file=Path(__file__).with_name(".env"))  # real environment wins
 ```
 
 `from_env()` without `env_file` reads only the process environment. In both cases a
 variable that is already set in the environment wins over the file, even when it is
-empty (`TAVILY_API_KEY= seekrelay search ...` skips Tavily for one call).
+empty (`TAVILY_API_KEY= seekrelay search ...` skips Tavily for one call). The two Brave
+names count as one setting.
 
 `read_env_file` supports `KEY=VALUE`, `export KEY=VALUE`, single or double quotes
 (text after the closing quote is treated as a comment, and `#` inside quotes is kept)
-and ` #` comments after unquoted values. Use python-dotenv if you need variable
-interpolation.
+and ` #` comments after unquoted values, so `KEY= # note` is empty. It reads a file the way
+the shell does: lines end at LF or CRLF, only spaces and tabs are blanks, and a carriage return
+inside a line is an error. A UTF-8 BOM is skipped, and a file over 1 MiB is refused. Pipes work
+(`--env-file <(sops -d secrets.env)`). Use python-dotenv if you need variable interpolation.
 
 ## Constructor options
 
@@ -91,6 +105,10 @@ not closed by the provider) and `user_agent`.
 | `detect_cards` | `True` |
 | `detect_ibans` | `True` |
 | `detect_phones` | `False` (noisy) |
+| `detect_tax_ids` | `True` |
+| `detect_secrets` | `True` |
+
+Rules and known gaps: [SECURITY.md](SECURITY.md#pii-guard-details).
 
 ## Logging
 
@@ -104,8 +122,10 @@ logging.basicConfig(level=logging.INFO)  # fallbacks and retries
 logging.getLogger("seekrelay").setLevel(logging.DEBUG)  # cache hits, skipped params
 ```
 
-Levels: `WARNING` for provider failures, `INFO` for retries and served-after-fallback,
-`DEBUG` for cache hits and parameters a provider cannot express. Keys and query PII are
+Levels: `WARNING` for provider failures (the provider, error class and status), `INFO` for
+retries and served-after-fallback, `DEBUG` for the provider's own error text, tracebacks of
+unexpected errors, cache hits and parameters a provider cannot express. The text is cleaned
+and kept on one line; the raw message stays in `response.attempts`. Keys and query PII are
 never logged.
 
 ## Recipes

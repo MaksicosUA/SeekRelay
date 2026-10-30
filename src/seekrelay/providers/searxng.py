@@ -6,6 +6,7 @@ The instance must allow JSON output (``search.formats`` in ``settings.yml``); se
 
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import Mapping, Sequence
 from typing import Any, NoReturn
@@ -45,10 +46,13 @@ _BLOCKED_REASONS = ("suspended", "captcha", "too many requests", "access denied"
 
 
 def _as_float(value: Any) -> float | None:
-    try:
-        return float(value) if value is not None else None
-    except (TypeError, ValueError):
+    if value is None:
         return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):  # OverflowError: an integer of 400 digits
+        return None
+    return number if math.isfinite(number) else None  # JSON has no NaN or Infinity
 
 
 def _instance_blocked(unresponsive: Sequence[tuple[str, str]]) -> bool:
@@ -100,8 +104,9 @@ class SearXNGProvider(SearchProvider):
     ) -> None:
         try:
             self._base_url = validate_url(base_url).rstrip("/")
-        except ValueError as exc:
-            raise ConfigurationError(f"Invalid SearXNG base URL: {base_url!r}") from exc
+        except ValueError:
+            # Without the value: a base URL can hold a password.
+            raise ConfigurationError("SearXNG base URL is not an absolute http(s) URL") from None
         if safesearch not in (0, 1, 2):
             raise ConfigurationError("safesearch must be 0, 1 or 2")
         super().__init__(**kwargs)

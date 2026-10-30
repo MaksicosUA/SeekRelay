@@ -27,6 +27,7 @@ __all__ = [
     "AuthenticationError",
     "ConfigurationError",
     "InvalidRequestError",
+    "NoProviderConfiguredError",
     "ProviderError",
     "ProviderUnavailableError",
     "QueryRejectedError",
@@ -44,6 +45,10 @@ class SeekRelayError(Exception):
 
 class ConfigurationError(SeekRelayError):
     """Missing or invalid configuration (no providers, empty API key, bad URL, ...)."""
+
+
+class NoProviderConfiguredError(ConfigurationError):
+    """No provider has credentials: the configuration is missing, not wrong."""
 
 
 class QueryRejectedError(SeekRelayError):

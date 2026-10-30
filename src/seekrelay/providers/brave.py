@@ -72,7 +72,7 @@ _LANGUAGE_ALIASES = {
     "no": "nb",
     "en-us": "en",
 }
-_TAG_RE = re.compile(r"<[^>]+>")
+_TAG_RE = re.compile(r"<[^<>]+>")
 _MAX_QUERY_WORDS = 50
 
 

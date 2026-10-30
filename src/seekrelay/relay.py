@@ -25,6 +25,7 @@ from dataclasses import dataclass, replace
 from types import TracebackType
 from typing import Any, TypeVar
 
+from ._text import one_line
 from .cache import TTLCache
 from .errors import (
     AllProvidersFailedError,
@@ -114,7 +115,8 @@ class SeekRelay:
         cache_ttl: Seconds to cache non-empty search responses. ``None`` or ``0``
             disables the cache.
         cache_size: Maximum number of cached queries (LRU eviction).
-        pii_guard: Guard applied to queries and URLs before sending. ``None`` disables it.
+        pii_guard: Guard applied to queries, domain filters and URLs before sending.
+            ``None`` disables it.
         fallback_on_invalid_request: Also fall back on HTTP 400/422. Off by default: a
             provider may have rejected the query deliberately, and sending it to the
             next provider would defeat that.
@@ -233,7 +235,8 @@ class SeekRelay:
                 ``time_range``, ``include_domains`` ...) when ``query`` is a string.
 
         Raises:
-            QueryRejectedError: the PII guard blocked the query.
+            QueryRejectedError: the query or a domain filter contains personal data or
+                a secret.
             InvalidRequestError: a provider rejected the request (no fallback by default).
             AllProvidersFailedError: every provider failed or was in cooldown.
         """
@@ -247,6 +250,8 @@ class SeekRelay:
 
         if self._pii_guard is not None:
             self._pii_guard.check(search_query.text)
+            for domain in (*search_query.include_domains, *search_query.exclude_domains):
+                self._pii_guard.check(domain, what="domain filter")
 
         if self._cache is not None:
             cached = self._cache.get(search_query)
@@ -306,8 +311,9 @@ class SeekRelay:
         Only providers with ``supports_extract`` take part (so far only Tavily).
 
         Raises:
-            ValueError: a URL is not an absolute http(s) URL.
-            QueryRejectedError: a URL contains personal data.
+            ValueError: a URL is not an absolute http(s) URL, or is longer than
+                :data:`~seekrelay.models.MAX_URL_LENGTH`.
+            QueryRejectedError: a URL contains personal data or a secret.
             ConfigurationError: no configured provider supports extraction.
             AllProvidersFailedError: every capable provider failed.
         """
@@ -316,9 +322,11 @@ class SeekRelay:
         cleaned = list(dict.fromkeys(validate_url(u) for u in url_list))
         if not cleaned:
             raise ValueError("At least one URL is required")
+        deadline = self._deadline()
         if self._pii_guard is not None:
             for url in cleaned:
                 self._pii_guard.check_url(url)
+                await asyncio.sleep(0)  # a long URL list must not stall the loop in one piece
 
         capable = [p for p in self._providers if p.supports_extract]
         if not capable:
@@ -328,7 +336,6 @@ class SeekRelay:
             )
 
         attempts: list[ProviderAttempt] = []
-        deadline = self._deadline()
         for provider in capable:
             if self._skip_if_cooling_down(provider, attempts) or self._skip_if_out_of_time(
                 provider, deadline, attempts
@@ -407,7 +414,7 @@ class SeekRelay:
                 logger.info(
                     "%s: %s - retry %d/%d in %.2fs",
                     provider.name,
-                    exc.message,
+                    one_line(exc.message),
                     attempt + 1,
                     self._retry.max_attempts,
                     delay,
@@ -416,8 +423,12 @@ class SeekRelay:
                 attempt += 1
             except Exception as exc:
                 # A bug or an unexpected payload in one provider must not take the whole
-                # search down: log it with a traceback and let the relay fall back.
-                logger.exception("provider %s raised an unexpected error", provider.name)
+                # search down: log it and let the relay fall back. The traceback holds local
+                # paths and whatever the exception quotes, so it stays at DEBUG.
+                logger.warning(
+                    "provider %s raised an unexpected %s", provider.name, type(exc).__name__
+                )
+                logger.debug("traceback of that error", exc_info=True)
                 raise ProviderError(
                     provider.name, f"unexpected {type(exc).__name__}: {str(exc)[:200]}"
                 ) from exc
@@ -463,7 +474,11 @@ class SeekRelay:
                 # The provider said when to come back; asking earlier only costs a round
                 # trip per call (e.g. SearXNG with all upstream engines suspended).
                 self._cooldown_until[provider.name] = self._clock() + exc.retry_after
-        logger.warning("provider %s failed: %s", provider.name, exc.message)
+        # Class and status only: the message is the provider's text, which may even fake a
+        # closing tag of the LLM block when an agent reads stderr together with stdout.
+        status = f" (HTTP {exc.status_code})" if exc.status_code else ""
+        logger.warning("provider %s failed: %s%s", provider.name, type(exc).__name__, status)
+        logger.debug("provider %s said: %s", provider.name, one_line(exc.message))
 
     # ------------------------------------------------------------------ sync API
 

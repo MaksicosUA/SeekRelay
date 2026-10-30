@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import httpx
 import pytest
 
@@ -13,6 +15,7 @@ from seekrelay import (
     SearchQuery,
     UnsupportedOperationError,
 )
+from seekrelay.providers.brave import _clean
 
 from .conftest import Recorder
 
@@ -227,3 +230,28 @@ async def test_malformed_items_are_skipped() -> None:
 async def test_extract_is_unsupported() -> None:
     with pytest.raises(UnsupportedOperationError):
         await provider(Recorder(httpx.Response(200))).extract(["https://a.com"])
+
+
+async def test_markup_cleanup_is_not_quadratic() -> None:
+    # Before: 9 s for 160,000 characters, four times as long for each doubling.
+    text = "<" * 200_000
+    body = {"web": {"results": [{"title": text, "url": "https://ok.com/", "description": text}]}}
+    rec = Recorder(httpx.Response(200, json=body))
+    started = time.perf_counter()
+    response = await provider(rec).search(SearchQuery("q"))
+    assert time.perf_counter() - started < 2.0
+    assert response.results[0].title == text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param("<strong>Python</strong> jobs", "Python jobs", id="highlight"),
+        pytest.param("a &lt;b&gt; c", "a <b> c", id="entities-stay-text"),
+        pytest.param("1 < 2 <strong>x</strong>", "1 < 2 x", id="lone-bracket-before-a-tag"),
+        pytest.param("<<strong>x", "<x", id="double-bracket"),
+        pytest.param("unclosed <strong", "unclosed <strong", id="unclosed"),
+    ],
+)
+def test_clean_removes_tags_and_nothing_else(text: str, expected: str) -> None:
+    assert _clean(text) == expected

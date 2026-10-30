@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
@@ -220,3 +222,30 @@ async def test_custom_headers_are_sent() -> None:
     await provider(rec, headers={"Authorization": "Basic abc"}).search(SearchQuery("q"))
     assert rec.last.headers["Authorization"] == "Basic abc"
     assert rec.last.headers["Accept"] == "application/json"
+
+
+@pytest.mark.parametrize(
+    "score",
+    [
+        pytest.param(b'"NaN"', id="nan-string"),
+        pytest.param(b"NaN", id="nan-literal"),
+        pytest.param(b'"inf"', id="inf-string"),
+        pytest.param(b"Infinity", id="infinity-literal"),
+        pytest.param(b"-Infinity", id="negative-infinity-literal"),
+        pytest.param(b"1e999", id="float-overflow"),
+        pytest.param(b"1" + b"0" * 400, id="huge-integer"),
+    ],
+)
+async def test_score_must_be_a_finite_number(score: bytes) -> None:
+    body = b'{"results":[{"title":"t","url":"https://a.example/","score":' + score + b"}]}"
+    rec = Recorder(httpx.Response(200, content=body))
+    response = await provider(rec).search(SearchQuery("q"))
+    assert [r.url for r in response.results] == ["https://a.example/"]
+    assert response.results[0].score is None
+    json.dumps(response.to_dict(), allow_nan=False)  # raises on NaN and Infinity
+
+
+def test_invalid_base_url_is_not_repeated_because_it_can_hold_a_password() -> None:
+    with pytest.raises(ConfigurationError) as failure:
+        SearXNGProvider("http://user:hunter22@host:bad/")
+    assert "hunter22" not in str(failure.value)

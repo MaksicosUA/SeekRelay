@@ -29,11 +29,11 @@ from __future__ import annotations
 import logging
 import math
 import os
+import re
 from collections.abc import Callable, Mapping
-from pathlib import Path
 from typing import Any
 
-from .errors import ConfigurationError
+from .errors import ConfigurationError, NoProviderConfiguredError
 from .pii import PIIGuard
 from .providers import BraveProvider, SearchProvider, SearXNGProvider, TavilyProvider
 from .relay import RetryPolicy, SeekRelay
@@ -52,6 +52,11 @@ DEFAULT_PROVIDER_ORDER = ("tavily", "brave", "searxng")
 
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
+_BRAVE_KEY_NAMES = ("BRAVE_API_KEY", "BRAVE_SEARCH_API_KEY")
+_MAX_ENV_FILE_BYTES = 1_048_576
+_ENV_BLANKS = " \t"
+_ENV_EXPORT_RE = re.compile(r"^export[ \t]+")
+_ENV_COMMENT_RE = re.compile(r"[ \t]#")
 
 
 def _get(env: Mapping[str, str], *names: str) -> str | None:
@@ -82,9 +87,10 @@ def _number(
         return default
     try:
         number = cast(value.strip())
-    except ValueError as exc:
+        finite = math.isfinite(number)  # overflows on an int with hundreds of digits
+    except (ValueError, OverflowError) as exc:
         raise ConfigurationError(f"{name} must be a number, got {value!r}") from exc
-    if not math.isfinite(number):
+    if not finite:
         raise ConfigurationError(f"{name} must be a finite number, got {value!r}")
     if number < 0:
         raise ConfigurationError(f"{name} must not be negative")
@@ -101,23 +107,39 @@ def read_env_file(path: str | os.PathLike[str]) -> dict[str, str]:
 
     Kept dependency-free on purpose; use python-dotenv if you need interpolation.
     """
+    # A size cap, not a check for regular files: a symlink to /dev/zero has to stop here, but
+    # --env-file <(sops -d file) is a pipe and a legitimate use.
+    with open(path, "rb") as file:
+        data = file.read(_MAX_ENV_FILE_BYTES + 1)
+    if len(data) > _MAX_ENV_FILE_BYTES:
+        raise ConfigurationError(f"{path}: larger than 1 MiB")
+
     values: dict[str, str] = {}
-    for number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), start=1):
-        stripped = line.strip()
+    # LF only: str.splitlines() also breaks on VT, FF, FS, GS, RS, NEL, LS, PS and a lone CR, so
+    # a line that grep and the shell see as one comment could carry live settings. Spaces and
+    # tabs only, for the same reason: str.strip() also takes NBSP and those separators, and a
+    # name that grep cannot find would still take effect. A CR inside a line can hide the rest
+    # of it on a terminal. utf-8-sig: a BOM must not silently lose the first setting.
+    for number, line in enumerate(data.decode("utf-8-sig").split("\n"), start=1):
+        stripped = line.removesuffix("\r").strip(_ENV_BLANKS)
         if not stripped or stripped.startswith("#"):
             continue
-        stripped = stripped.removeprefix("export ").strip()
+        if "\r" in stripped:
+            raise ConfigurationError(f"{path}:{number}: carriage return inside a line")
+        stripped = _ENV_EXPORT_RE.sub("", stripped)
         if "=" not in stripped:
             raise ConfigurationError(f"{path}:{number}: expected KEY=VALUE")
-        key, value = stripped.split("=", 1)
-        key, value = key.strip(), value.strip()
+        key, raw_value = stripped.split("=", 1)
+        key, value = key.strip(_ENV_BLANKS), raw_value.strip(_ENV_BLANKS)
         if value[:1] in ("'", '"'):
             closing = value.find(value[0], 1)
             if closing == -1:
                 raise ConfigurationError(f"{path}:{number}: unterminated quote")
             value = value[1:closing]  # anything after the closing quote is a comment
-        elif " #" in value:
-            value = value.split(" #", 1)[0].rstrip()
+        elif value.startswith("#") and raw_value[:1] in (" ", "\t"):
+            value = ""  # as in the shell, "KEY= # note" is empty and "KEY=#abc" is a value
+        else:
+            value = _ENV_COMMENT_RE.split(value, maxsplit=1)[0].rstrip(_ENV_BLANKS)
         values[key] = value
     return values
 
@@ -130,7 +152,8 @@ def build_providers_from_env(
     """Create the providers that have credentials, in the configured order.
 
     Raises:
-        ConfigurationError: unknown provider name, or no provider has credentials.
+        NoProviderConfiguredError: no provider has credentials.
+        ConfigurationError: unknown provider name or an invalid setting.
     """
     env = os.environ if env is None else env
     if order:
@@ -158,7 +181,7 @@ def build_providers_from_env(
                 )
                 continue
         elif name == "brave":
-            key = _get(env, "BRAVE_API_KEY", "BRAVE_SEARCH_API_KEY")
+            key = _get(env, *_BRAVE_KEY_NAMES)
             if key:
                 providers.append(BraveProvider(key, timeout=timeout))
                 continue
@@ -178,11 +201,20 @@ def build_providers_from_env(
         logger.info("provider %s skipped: no credentials configured", name)
 
     if not providers:
-        raise ConfigurationError(
+        raise NoProviderConfiguredError(
             "No search provider is configured. Set at least one of "
             "TAVILY_API_KEY, BRAVE_API_KEY or SEARXNG_BASE_URL."
         )
     return providers
+
+
+def _merge_env_file(env: Mapping[str, str], path: str | os.PathLike[str]) -> dict[str, str]:
+    """Put a file's values under ``env``. The Brave key has two names, so either one hides both."""
+    values = read_env_file(path)
+    if any(name in env for name in _BRAVE_KEY_NAMES):
+        for name in _BRAVE_KEY_NAMES:
+            values.pop(name, None)
+    return {**values, **env}
 
 
 def build_relay_from_env(
@@ -200,7 +232,7 @@ def build_relay_from_env(
     """
     env = os.environ if env is None else env
     if env_file is not None:
-        env = {**read_env_file(env_file), **env}
+        env = _merge_env_file(env, env_file)
     order = overrides.pop("order", None)
     providers = build_providers_from_env(env, order=order)
     settings: dict[str, Any] = {

@@ -153,7 +153,7 @@ Leave 15-20 s between searches, or the upstream engines start blocking the insta
 | `include_raw_content` | Filled for 2 of 2 results | as assumed |
 | `/extract` merges pages and `failed_results` | 4 URLs: 3 pages (Markdown), 1 unknown host in `failed` | as assumed |
 | 401 maps to `AuthenticationError` with cooldown and fallback | Bad key: served by the backup provider, cooldown 300 s | as assumed |
-| Fallback in the CLI, `./.env` read automatically | SearXNG down: `ConnectError`, then served by Tavily | as assumed |
+| Fallback in the CLI, `./.env` read automatically | SearXNG down: `ConnectError`, then served by Tavily | as assumed. *Changed after this run:* a `.env` file is read only with `--env-file` |
 | Tavily blocks queries with personal data | A query with a made-up e-mail address was accepted (3 results) | **not confirmed on this plan.** `PIIGuard` is what protects such queries; the docs are corrected |
 
 ### Numbers

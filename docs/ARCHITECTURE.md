@@ -38,7 +38,8 @@ flowchart LR
 | `providers/base.py` | Owns the `httpx.AsyncClient`, sends requests, maps transport errors and HTTP status codes to exceptions |
 | `providers/*.py` | Translate `SearchQuery` to one API and the answer back; provider-specific status codes |
 | `relay.py` | Ordering, retries, fallback, cooldown, cache, de-duplication, sync wrapper |
-| `pii.py` | Detects e-mails, Luhn-valid card numbers, mod-97-valid IBANs (phones optional) |
+| `pii.py` | Detects e-mails, Luhn-valid card numbers, mod-97-valid IBANs, Ukrainian tax numbers and secrets (phones optional) |
+| `_text.py` | The characters that must not reach a terminal or a model; used by rendering, the CLI, logging and the guard |
 | `cache.py` | In-memory TTL + LRU cache |
 | `config.py` | Build providers/relay from environment variables; minimal `.env` reader |
 | `cli.py` | `seekrelay` command |
@@ -52,7 +53,7 @@ sequenceDiagram
     participant P as Provider i
     C->>G: search("query", **options)
     G->>G: SearchQuery(...) validates and normalises
-    G->>G: PIIGuard.check(text)
+    G->>G: PIIGuard.check(text and domain filters)
     alt personal data found
         G-->>C: QueryRejectedError (nothing was sent)
     end
@@ -108,7 +109,8 @@ Errors outside the provider hierarchy:
 | Exception | Raised when |
 |---|---|
 | `QueryRejectedError` | PII guard blocked the query or URL; carries `findings` (kinds only, never values) |
-| `ConfigurationError` | no providers, empty key, invalid base URL, unknown provider name |
+| `ConfigurationError` | empty key, invalid base URL, unknown provider name, invalid setting |
+| `NoProviderConfiguredError` | a `ConfigurationError`: no provider has credentials |
 | `AllProvidersFailedError` | every provider failed or was skipped; carries `attempts` |
 | `ValueError` / `TypeError` | invalid `SearchQuery` arguments |
 
@@ -150,7 +152,9 @@ a query with an e-mail address, so `PIIGuard` is the layer that stops it.
 | Only non-empty responses are cached | An empty answer is often transient |
 | The cache stores and returns copies | Callers may mutate the response they get; cache hits report `attempts=()` instead of replaying an old fallback history |
 | `follow_redirects=False` | A redirect from an API usually means a wrong base URL or a login page; it is reported, not followed |
-| `PIIGuard` favours precision | Card numbers need a valid Luhn checksum and a 2-6 prefix, IBANs a valid mod-97 checksum; phones are opt-in |
+| `PIIGuard` favours precision | Card numbers need a valid Luhn checksum and a known prefix, IBANs a valid mod-97 checksum, tax numbers a control digit and a keyword, secrets a known prefix or a keyword and a value that reads neither as prose nor as code; phones are opt-in |
+| Rendering has an exact table instead of Unicode normalisation | NFKC changes what a page says (`10⁶` becomes `106`) and can hide a bracket from the escaper. The guard does use NFKC, because it only scans a copy |
+| No `.env` is read unless named | A working directory can be a stranger's repository, and a file there could redirect queries or switch the guard off |
 | No logging of secrets or PII | `repr()` of providers omits keys; `QueryRejectedError` lists kinds of data only |
 | Library logger has a `NullHandler` | The application decides where logs go (`logging.getLogger("seekrelay")`) |
 

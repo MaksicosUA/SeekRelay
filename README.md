@@ -30,8 +30,8 @@ between:
 | Timeouts, 5xx, 429 | Retries with exponential back-off, honours short `Retry-After`, falls back on long ones and skips that provider until then |
 | An agent stuck waiting while every provider is slow | `time_budget` caps one call across all providers and retries |
 | Different response shapes | One normalised `SearchResponse` / `SearchResult` model |
-| Prompt injection via web pages | `to_llm_context()` escapes all web text and labels it untrusted |
-| Agents leaking personal data into queries | `PIIGuard` blocks e-mails, card numbers and IBANs before any request |
+| Prompt injection via web pages | `to_llm_context()` removes invisible characters, escapes all web text and labels it untrusted |
+| Agents leaking personal data or keys into queries | `PIIGuard` blocks e-mails, card numbers, IBANs, Ukrainian tax numbers and secrets before any request |
 | Paying twice for the same lookup | TTL cache for identical queries |
 | Duplicate URLs (`utm_*`, `www.`, trailing `/`) | Canonical-URL de-duplication |
 
@@ -61,9 +61,12 @@ pip install -e ".[dev]"
 cp .env.example .env   # add at least one key or a SearXNG URL
 ```
 
-The `seekrelay` CLI reads `./.env` automatically. In code, `SeekRelay.from_env()`
-reads only the process environment; pass `env_file=".env"` to read the file too
-(variables already set in the environment win).
+A `.env` file is read only when you name it: `./.env` may belong to a repository you have
+just cloned, and it could send your queries elsewhere or switch the PII guard off. On the
+command line, put `--env-file .env` before the command, or export the variables. In code,
+`SeekRelay.from_env()` reads only the process environment; pass an absolute path to read a
+file too, such as `env_file=Path(__file__).with_name(".env")`. Variables already set in the
+environment win.
 
 ## Usage
 
@@ -85,7 +88,7 @@ async def main() -> None:
                 language="uk",
                 country="ua",
             )
-        except QueryRejectedError as exc:  # personal data in the query
+        except QueryRejectedError as exc:  # personal data or a secret in the query
             print(exc)
             return
         except AllProvidersFailedError as exc:  # every provider failed / in cooldown
@@ -144,8 +147,8 @@ errors into short messages the model can act on.
 ### CLI
 
 ```bash
-seekrelay providers
-seekrelay search "fastapi background tasks" -n 3
+seekrelay --env-file .env providers
+seekrelay --env-file .env search "fastapi background tasks" -n 3
 seekrelay search "LLM engineer remote" --time-range week \
     --include-domain djinni.co --include-domain jobs.dou.ua --format json
 seekrelay --providers searxng,tavily search "rag evaluation" --format llm
@@ -157,8 +160,8 @@ Exit codes: `0` ok, `1` provider failure, `2` usage/configuration error,
 
 ## Configuration
 
-Everything can be set via environment variables or a `.env` file; see
-[.env.example](.env.example) and [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+Everything can be set via environment variables or a `.env` file you name with `--env-file`;
+see [.env.example](.env.example) and [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 Providers without credentials are skipped, so one `.env` works everywhere.
 
 ## Documentation
@@ -189,6 +192,7 @@ src/seekrelay/
 ├── models.py         # SearchQuery, SearchResponse, ... + to_llm_context()
 ├── errors.py         # exception hierarchy (retryable / fallback flags)
 ├── pii.py            # PIIGuard
+├── _text.py          # characters that must not reach a terminal or a model
 ├── cache.py          # TTL + LRU cache
 ├── config.py         # env-based construction, .env reader
 ├── cli.py            # seekrelay command
@@ -206,7 +210,12 @@ src/seekrelay/
   the Brave Search API has not yet, so run a smoke test with your key before relying on it.
 - Only Tavily implements `extract`. Brave and SearXNG return snippets.
 - The cache is per-process and in-memory.
-- `PIIGuard` is a seatbelt for obvious identifiers, not a DLP system.
+- `PIIGuard` is a seatbelt for obvious identifiers, not a DLP system. It prefers letting an
+  unusual spelling through to blocking ordinary queries; the known gaps are listed in
+  [docs/SECURITY.md](docs/SECURITY.md#pii-guard-details).
+- In `--format llm` and `to_llm_context()`, URLs are percent-encoded, so a Cyrillic path shows
+  as `%D0%...` and a Cyrillic host in punycode. Zero-width joiners and variation selectors are
+  removed, which also affects Persian text and emoji sequences.
 
 ### Live check (October 2026)
 

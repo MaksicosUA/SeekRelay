@@ -58,7 +58,7 @@ async def test_search_builds_payload_and_maps_results() -> None:
         max_results=2,
         depth="advanced",  # type: ignore[arg-type]
         time_range="month",  # type: ignore[arg-type]
-        include_domains=["fastapi.tiangolo.com"],
+        include_domains=["fastapi.tiangolo.com", "example.com"],
         exclude_domains=["spam.com"],
         language="en",
         country="ua",
@@ -79,7 +79,7 @@ async def test_search_builds_payload_and_maps_results() -> None:
         "include_raw_content": "markdown",
         "include_published_date": True,
         "time_range": "month",
-        "include_domains": ["fastapi.tiangolo.com"],
+        "include_domains": ["fastapi.tiangolo.com", "example.com"],
         "exclude_domains": ["spam.com"],
         "language": "en",
         "country": "ukraine",
@@ -287,3 +287,46 @@ async def test_decoding_error_is_response_format_error() -> None:
     rec = Recorder(httpx.DecodingError("bad gzip"))
     with pytest.raises(ResponseFormatError):
         await provider(rec).search(SearchQuery("q"))
+
+
+@pytest.mark.parametrize(
+    "score",
+    [
+        pytest.param(b'"NaN"', id="nan-string"),
+        pytest.param(b"NaN", id="nan-literal"),
+        pytest.param(b'"inf"', id="inf-string"),
+        pytest.param(b"Infinity", id="infinity-literal"),
+        pytest.param(b"-Infinity", id="negative-infinity-literal"),
+        pytest.param(b"1e999", id="float-overflow"),
+        pytest.param(b"1" + b"0" * 400, id="huge-integer"),
+    ],
+)
+async def test_score_must_be_a_finite_number(score: bytes) -> None:
+    body = b'{"results":[{"title":"t","url":"https://a.example/","score":' + score + b"}]}"
+    rec = Recorder(httpx.Response(200, content=body))
+    response = await provider(rec).search(SearchQuery("q"))
+    assert [r.url for r in response.results] == ["https://a.example/"]
+    assert response.results[0].score is None
+    json.dumps(response.to_dict(), allow_nan=False)  # raises on NaN and Infinity
+
+
+async def test_search_applies_the_filters_to_what_tavily_returns() -> None:
+    rec = Recorder(httpx.Response(200, json=SEARCH_OK))
+    query = SearchQuery("q", include_domains=["fastapi.tiangolo.com"])
+    response = await provider(rec).search(query)
+    assert [r.url for r in response.results] == ["https://fastapi.tiangolo.com/"]
+
+    rec = Recorder(httpx.Response(200, json=SEARCH_OK))
+    response = await provider(rec).search(SearchQuery("q", exclude_domains=["example.com"]))
+    assert [r.url for r in response.results] == ["https://fastapi.tiangolo.com/"]
+
+
+async def test_extract_drops_pages_that_are_not_http_urls() -> None:
+    results = [
+        {"url": "https://a.example/", "raw_content": "kept"},
+        {"url": "javascript:alert(1)", "raw_content": "dropped"},
+        {"url": "file:///etc/passwd", "raw_content": "dropped"},
+    ]
+    rec = Recorder(httpx.Response(200, json={"results": results}))
+    response = await provider(rec).extract(["https://a.example/"])
+    assert [page.url for page in response.pages] == ["https://a.example/"]

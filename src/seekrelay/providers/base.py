@@ -45,10 +45,9 @@ def parse_retry_after(value: str | None) -> float | None:
         seconds = float(value)
     except ValueError:
         try:
-            moment = parsedate_to_datetime(value)
-        except (TypeError, ValueError, IndexError):
+            seconds = parsedate_to_datetime(value).timestamp() - time.time()
+        except (TypeError, ValueError, IndexError, OverflowError, OSError):
             return None
-        seconds = moment.timestamp() - time.time()
     if not math.isfinite(seconds):
         return None
     return max(seconds, 0.0)

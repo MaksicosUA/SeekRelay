@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Sequence
 from typing import Any, NoReturn
@@ -216,10 +217,13 @@ TAVILY_COUNTRY_NAMES: dict[str, str] = {
 
 
 def _as_float(value: Any) -> float | None:
-    try:
-        return float(value) if value is not None else None
-    except (TypeError, ValueError):
+    if value is None:
         return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):  # OverflowError: an integer of 400 digits
+        return None
+    return number if math.isfinite(number) else None  # JSON has no NaN or Infinity
 
 
 class TavilyProvider(SearchProvider):
@@ -299,6 +303,9 @@ class TavilyProvider(SearchProvider):
         results: list[SearchResult] = []
         for item in data["results"]:
             if not isinstance(item, dict) or not is_http_url(str(item.get("url") or "")):
+                continue
+            # The filters are native here, but a filter must hold whatever the provider sends.
+            if not query.allows_url(str(item["url"]).strip()):
                 continue
             results.append(
                 SearchResult(
@@ -391,7 +398,7 @@ class TavilyProvider(SearchProvider):
                 provider=self.name,
             )
             for item in data.get("results") or []
-            if isinstance(item, dict) and item.get("url")
+            if isinstance(item, dict) and is_http_url(str(item.get("url") or ""))
         ]
         failed = [
             FailedExtraction(
