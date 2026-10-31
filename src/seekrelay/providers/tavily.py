@@ -32,7 +32,7 @@ from ..models import (
     Topic,
     is_http_url,
     optional_str,
-    validate_url,
+    validate_public_url,
 )
 from .base import SearchProvider
 
@@ -333,7 +333,7 @@ class TavilyProvider(SearchProvider):
 
     async def extract(self, urls: Sequence[str], *, advanced: bool = False) -> ExtractResponse:
         try:
-            unique = list(dict.fromkeys(validate_url(u) for u in urls))
+            unique = list(dict.fromkeys(validate_public_url(u) for u in urls))
         except ValueError as exc:
             raise InvalidRequestError(self.name, str(exc)) from exc
         if not unique:

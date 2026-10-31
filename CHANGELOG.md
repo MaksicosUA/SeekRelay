@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-31
+
+### Changed
+- `timeout` and `SEEKRELAY_TIMEOUT` limit one request from sending it to the last byte of the
+  response, not each network read.
+- `extract` refuses URLs with a user name or password, and URLs whose host is local, private or
+  read differently by different parsers.
+- `-v` no longer shows log lines from `httpx` and `httpcore`.
+- A response from the cache has `latency_ms=0` instead of repeating the first call.
+
+### Security
+- A provider response is limited to 32 MiB after decompression. A gzip body of 467 KB took
+  970 MiB of memory in 0.2.0 and 159 MiB now; the relay moves on to the next provider.
+- A body sent a byte at a time can no longer outlive the timeout.
+- A `Retry-After` longer than an hour keeps a provider out for an hour at most. The value `10^9`
+  switched it off for 32 years.
+- With `-v`, search queries and a password in a SearXNG URL no longer reach stderr.
+- Errors about a bad URL or domain filter no longer repeat the value, which may hold a token.
+
 ## [0.2.0] - 2026-10-31
 
 ### Added

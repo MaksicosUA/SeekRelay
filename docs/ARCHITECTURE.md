@@ -130,7 +130,8 @@ a query with an e-mail address, so `PIIGuard` is the layer that stops it.
 * A `Retry-After` shorter than `max_delay` is honoured exactly. A longer one is not
   waited for; the relay falls back immediately, because an agent waiting a minute is
   worse than an answer from the next provider, and skips that provider for `retry_after`
-  seconds (unless `cooldown_seconds=0`), because asking earlier only costs a round trip.
+  seconds, at most an hour (unless `cooldown_seconds=0`), because asking earlier only costs a
+  round trip.
 * Auth and quota errors are never retried and put the provider into cooldown
   (`cooldown_seconds`, default 300 s), so a month of exhausted credits does not cost a
   failed round trip on every request.

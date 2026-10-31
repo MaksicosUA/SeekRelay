@@ -130,6 +130,25 @@ async def test_long_retry_after_cools_down_for_that_long(
     assert a.calls == 2
 
 
+async def test_retry_after_cannot_switch_a_provider_off_for_good(
+    clock: FakeClock, sleep: FakeSleep
+) -> None:
+    a = FakeProvider("a", RateLimitError("a", "429", retry_after=10**9))
+    relay = make_relay(a, FakeProvider("b"), clock=clock, sleep=sleep, cache_ttl=None)
+    await relay.search("q")
+    assert relay.cooldown_remaining("a") == 3600
+
+
+async def test_extract_refuses_local_addresses_before_any_provider(
+    clock: FakeClock, sleep: FakeSleep
+) -> None:
+    a = FakeProvider("a", ["https://a.com"])
+    relay = make_relay(a, clock=clock, sleep=sleep, cache_ttl=None)
+    with pytest.raises(ValueError, match="local"):
+        await relay.extract("http://169.254.169.254/latest/meta-data/")
+    assert a.calls == 0
+
+
 async def test_rate_limit_cooldown_only_for_long_retry_after(
     clock: FakeClock, sleep: FakeSleep
 ) -> None:
@@ -207,6 +226,7 @@ async def test_cache_hits_and_expires(clock: FakeClock, sleep: FakeSleep) -> Non
     second = await relay.search(SearchQuery(" q ", max_results=3))
     assert a.calls == 1
     assert second.from_cache and not first.from_cache
+    assert second.latency_ms == 0
     second.results.clear()  # mutating a cached copy must not poison the cache
     assert len((await relay.search("q", max_results=3)).results) == 1
 

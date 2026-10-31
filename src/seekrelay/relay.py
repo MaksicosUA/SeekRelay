@@ -43,7 +43,7 @@ from .models import (
     SearchResponse,
     SearchResult,
     canonical_url,
-    validate_url,
+    validate_public_url,
 )
 from .pii import PIIGuard
 from .providers.base import SearchProvider
@@ -53,6 +53,8 @@ __all__ = ["RetryPolicy", "SeekRelay", "dedupe_results"]
 logger = logging.getLogger("seekrelay")
 
 T = TypeVar("T")
+
+MAX_RETRY_AFTER_COOLDOWN = 3600.0
 
 DEFAULT_PII_GUARD = PIIGuard()
 """Shared default guard (PIIGuard is immutable, so sharing is safe)."""
@@ -123,7 +125,7 @@ class SeekRelay:
         fallback_on_empty: Try the next provider when one returns zero results.
         cooldown_seconds: How long to skip a provider after an auth or quota error. A
             rate limit whose ``retry_after`` exceeds ``retry.max_delay`` skips the provider
-            for ``retry_after`` seconds instead. ``0`` disables both.
+            for ``retry_after`` seconds instead, up to an hour. ``0`` disables both.
         time_budget: Upper bound in seconds for one ``search``/``extract`` call across all
             providers, retries and back-off. When it runs out, the running request is
             cancelled and the remaining providers are skipped, so the call ends with
@@ -257,8 +259,14 @@ class SeekRelay:
             cached = self._cache.get(search_query)
             if cached is not None:
                 logger.debug("cache hit for %r", search_query.text)
-                # A copy, without the original call's fallback history.
-                return replace(cached, results=list(cached.results), from_cache=True, attempts=())
+                # A copy, without the original call's fallback history or latency.
+                return replace(
+                    cached,
+                    results=list(cached.results),
+                    from_cache=True,
+                    attempts=(),
+                    latency_ms=0.0,
+                )
 
         attempts: list[ProviderAttempt] = []
         empty_response: SearchResponse | None = None
@@ -319,7 +327,7 @@ class SeekRelay:
         """
         self._ensure_open()
         url_list = [urls] if isinstance(urls, str) else list(urls)
-        cleaned = list(dict.fromkeys(validate_url(u) for u in url_list))
+        cleaned = list(dict.fromkeys(validate_public_url(u) for u in url_list))
         if not cleaned:
             raise ValueError("At least one URL is required")
         deadline = self._deadline()
@@ -473,7 +481,9 @@ class SeekRelay:
             ):
                 # The provider said when to come back; asking earlier only costs a round
                 # trip per call (e.g. SearXNG with all upstream engines suspended).
-                self._cooldown_until[provider.name] = self._clock() + exc.retry_after
+                # The ceiling is for a value that would switch the provider off for good.
+                wait = min(exc.retry_after, MAX_RETRY_AFTER_COOLDOWN)
+                self._cooldown_until[provider.name] = self._clock() + wait
         # Class and status only: the message is the provider's text, which may even fake a
         # closing tag of the LLM block when an agent reads stderr together with stdout.
         status = f" (HTTP {exc.status_code})" if exc.status_code else ""

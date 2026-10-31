@@ -1118,6 +1118,21 @@ def test_verbose_log_has_the_provider_message_on_one_line(
     ]
 
 
+def test_verbose_log_leaves_out_request_urls(
+    fake_relay: _FakeRelayFactory,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from .conftest import FakeProvider
+
+    _let_main_configure_logging(monkeypatch)
+    fake_relay.providers[:] = [FakeProvider("x", ["https://ok.example/"])]
+    assert main(["-v", "search", "q"]) == EXIT_OK
+    logging.getLogger("httpx").info("HTTP Request: GET https://u:hunter2@s.example/search?q=q")
+    logging.getLogger("httpcore").debug("send_request_headers.started")
+    assert "hunter2" not in capsys.readouterr().err
+
+
 def test_broken_provider_traceback_is_clean_and_keeps_its_lines(
     fake_relay: _FakeRelayFactory,
     monkeypatch: pytest.MonkeyPatch,

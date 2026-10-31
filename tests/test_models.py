@@ -6,6 +6,7 @@ import sys
 import timeit
 import tracemalloc
 import unicodedata
+from typing import Any
 from urllib.parse import unquote
 
 import pytest
@@ -21,6 +22,7 @@ from seekrelay.models import (
     host_matches,
     is_http_url,
     normalize_domain,
+    validate_public_url,
     validate_url,
 )
 
@@ -846,3 +848,64 @@ def test_to_dict_keeps_raw_text() -> None:
     data = extract.to_dict()
     assert data["pages"][0]["content"] == raw
     assert data["failed"][0]["error"] == raw
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/a?b=1",
+        "http://93.184.216.34/",
+        "https://[2606:4700:4700::1111]/",
+        "https://example.com./",
+        "https://\U00000440\U00000430\U00000431\U0000043e\U00000442\U00000430.\U00000440\U00000444/",
+    ],
+)
+def test_public_urls_pass(url: str) -> None:
+    assert validate_public_url(url) == url
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:8080/admin",
+        "http://LOCALHOST/",
+        "http://localhost./",
+        "http://printer/",
+        "http://app.localhost/",
+        "https://nas.local/",
+        "https://db.internal/",
+        "https://router.home.arpa/",
+        "http://127.0.0.1/",
+        "http://127.1/",
+        "http://2130706433/",
+        "http://0x7f.0.0.1/",
+        "http://0177.0.0.1/",
+        "http://10.0.0.5/",
+        "http://172.16.0.1/",
+        "http://192.168.1.1/",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://100.64.0.1/",
+        "http://[::1]/",
+        "http://[fe80::1]/",
+        "http://[fd00::1]/",
+        "http://[::ffff:127.0.0.1]/",
+        "http://\U0000ff11\U0000ff12\U0000ff17.0.0.1/",
+        "http://127\U00003002 0\U00003002 0\U00003002 1/".replace(" ", ""),
+        "http://%6c%6f%63%61%6c%68%6f%73%74/",
+        "http://example.com\\@127.0.0.1/",
+        "https://user:hunter2@example.com/",
+        "https://user@example.com/",
+    ],
+)
+def test_private_urls_are_refused_without_being_repeated(url: str) -> None:
+    with pytest.raises(ValueError) as caught:
+        validate_public_url(url)
+    assert url not in str(caught.value)
+    assert "hunter2" not in str(caught.value)
+
+
+@pytest.mark.parametrize("check", [validate_url, normalize_domain])
+def test_refused_values_stay_out_of_the_error(check: Any) -> None:
+    with pytest.raises(ValueError) as caught:
+        check("not a url ghp_secret")
+    assert "ghp_secret" not in str(caught.value)

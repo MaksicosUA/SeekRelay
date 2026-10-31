@@ -208,6 +208,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.WARNING, handlers=[handler]
     )
+    # Their INFO lines hold request URLs: search queries, and a password in a SearXNG URL.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     try:
         # Only a file named on the command line: ./.env may be a stranger's, for example in a
         # cloned repository, and it could redirect queries or switch the PII guard off. Read

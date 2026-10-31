@@ -8,6 +8,7 @@ provider-specific payloads.
 from __future__ import annotations
 
 import html
+import ipaddress
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -36,6 +37,7 @@ __all__ = [
     "is_http_url",
     "normalize_domain",
     "optional_str",
+    "validate_public_url",
     "validate_url",
 ]
 
@@ -89,6 +91,7 @@ _PLAIN_HOST_RE = re.compile(r"[a-z0-9._:-]+")
 _AMBIGUOUS_AUTHORITY_RE = re.compile(r"://[^/?#]*[\\\t\r\n]")
 # The IDNA 2003 codec turns these into "ss" and a plain sigma; browsers keep them.
 _IDNA_2003_ONLY = ("\xdf", "\U000003c2")
+_LOCAL_SUFFIXES = (".localhost", ".local", ".internal", ".intranet", ".lan", ".home.arpa")
 
 
 class SearchDepth(str, Enum):
@@ -145,7 +148,7 @@ def normalize_domain(value: str) -> str:
     raw = raw.split("/", 1)[0].split(":", 1)[0].rstrip(".")
     raw = _ascii_host(raw).removeprefix("www.")
     if not _DOMAIN_RE.match(raw):
-        raise ValueError(f"Invalid domain: {value!r}")
+        raise ValueError("Invalid domain")  # without the value: it may be personal data
     return raw
 
 
@@ -198,8 +201,43 @@ def validate_url(value: str) -> str:
     if isinstance(value, str) and len(value) > MAX_URL_LENGTH:
         raise ValueError(f"URL must be at most {MAX_URL_LENGTH} characters")
     if not isinstance(value, str) or not is_http_url(value):
-        raise ValueError(f"Not an absolute http(s) URL: {value!r}")
+        raise ValueError("Not an absolute http(s) URL")  # without the value: it may hold a token
     return value.strip()
+
+
+def _is_local_host(host: str) -> bool:
+    """True for names and addresses that make no sense outside a private network."""
+    if "." not in host and ":" not in host:  # localhost, intranet names, 2130706433
+        return True
+    if host.endswith(_LOCAL_SUFFIXES):
+        return True
+    try:
+        return not ipaddress.ip_address(host).is_global
+    except ValueError:
+        # Browsers and curl read a last label made of digits as IPv4: 127.1, 0x7f.0.0.1.
+        last = host.rsplit(".", 1)[-1]
+        return last.isdigit() or last.startswith("0x")
+
+
+def validate_public_url(value: str) -> str:
+    """:func:`validate_url` for URLs handed to a third party to fetch.
+
+    A provider fetches them from its own network, so an internal address can only leak the
+    address or reach something of the provider's. Names are not resolved: a public name that
+    points at a private address passes.
+
+    Raises:
+        ValueError: as in :func:`validate_url`, for a user name or password in the URL, and for
+            a host that is local, private or read differently by different parsers.
+    """
+    url = validate_url(value)
+    parts = urlsplit(url)
+    if parts.username is not None or parts.password is not None:
+        raise ValueError("URL must not contain a user name or password")
+    host = _hostname(url)
+    if not host or _is_local_host(host):
+        raise ValueError("URL host is local, private or ambiguous")
+    return url
 
 
 def optional_str(value: Any) -> str | None:

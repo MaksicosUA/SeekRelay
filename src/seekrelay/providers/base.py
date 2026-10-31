@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import time
@@ -26,12 +27,19 @@ from ..errors import (
 )
 from ..models import ExtractResponse, SearchQuery, SearchResponse
 
-__all__ = ["DEFAULT_TIMEOUT", "DEFAULT_USER_AGENT", "SearchProvider", "parse_retry_after"]
+__all__ = [
+    "DEFAULT_TIMEOUT",
+    "DEFAULT_USER_AGENT",
+    "MAX_RESPONSE_BYTES",
+    "SearchProvider",
+    "parse_retry_after",
+]
 
 logger = logging.getLogger("seekrelay")
 
 DEFAULT_TIMEOUT = 20.0
 DEFAULT_USER_AGENT = f"seekrelay/{__version__}"
+MAX_RESPONSE_BYTES = 32 * 1024 * 1024  # after decompression: 145 KB of gzip can unpack to 481 MB
 
 _ERROR_KEYS = ("error", "detail", "message", "msg", "description")
 
@@ -141,18 +149,13 @@ class SearchProvider(ABC):
     ) -> httpx.Response:
         """Send a request and translate transport errors and HTTP errors into our hierarchy."""
         try:
-            response = await self._client.request(
-                method,
-                url,
-                params=params,
-                json=json,
-                headers=headers,
-                timeout=self._timeout,
-                # Also for injected clients: a redirect could carry the API key header
-                # (e.g. X-Subscription-Token) to another host.
-                follow_redirects=False,
+            request = self._client.build_request(
+                method, url, params=params, json=json, headers=headers, timeout=self._timeout
             )
-        except httpx.TimeoutException as exc:
+            # httpx applies its timeouts to each read, so a body sent a byte at a time would
+            # never trip them: this limit covers the whole exchange.
+            response = await asyncio.wait_for(self._fetch(request), self._timeout)
+        except (asyncio.TimeoutError, httpx.TimeoutException) as exc:
             raise ProviderUnavailableError(
                 self.name, f"request timed out after {self._timeout:g}s"
             ) from exc
@@ -177,6 +180,37 @@ class SearchProvider(ABC):
                 status_code=response.status_code,
             )
         return response
+
+    async def _fetch(self, request: httpx.Request) -> httpx.Response:
+        """Read a response into memory, up to :data:`MAX_RESPONSE_BYTES` of unpacked data."""
+        # Also for injected clients: a redirect could carry the API key header
+        # (e.g. X-Subscription-Token) to another host.
+        response = await self._client.send(request, stream=True, follow_redirects=False)
+        body = bytearray()
+        try:
+            async for chunk in response.aiter_bytes():
+                body += chunk
+                if len(body) > MAX_RESPONSE_BYTES:
+                    raise ResponseFormatError(
+                        self.name,
+                        f"response is larger than {MAX_RESPONSE_BYTES} bytes",
+                        status_code=response.status_code,
+                    )
+        finally:
+            await response.aclose()
+        # The body is unpacked already: the header would make httpx unpack it again.
+        headers = [
+            (name, value)
+            for name, value in response.headers.multi_items()
+            if name.lower() != "content-encoding"
+        ]
+        return httpx.Response(
+            response.status_code,
+            headers=headers,
+            content=bytes(body),
+            request=request,
+            extensions=response.extensions,
+        )
 
     def _error_message(self, response: httpx.Response) -> str:
         try:

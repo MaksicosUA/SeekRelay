@@ -11,7 +11,7 @@ Variables (all optional except at least one provider's credentials):
 ``SEARXNG_BASE_URL``            Enables SearXNG, e.g. ``http://127.0.0.1:8888``.
 ``SEARXNG_ENGINES``             Comma-separated engine list (instance default if empty).
 ``SEARXNG_AUTH_HEADER``         Value for an ``Authorization`` header (reverse proxy).
-``SEEKRELAY_TIMEOUT``           Per-request timeout in seconds. Default ``20``.
+``SEEKRELAY_TIMEOUT``           Limit for one request, to the last byte, in seconds. Default ``20``.
 ``SEEKRELAY_MAX_ATTEMPTS``      Attempts per provider. Default ``2``.
 ``SEEKRELAY_CACHE_TTL``         Cache TTL in seconds, ``0`` disables. Default ``600``.
 ``SEEKRELAY_COOLDOWN``          Cooldown after auth/quota errors. Default ``300``.

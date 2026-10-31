@@ -216,6 +216,8 @@ async def test_extract_rejects_bad_urls() -> None:
         await provider(rec).extract(["file:///etc/passwd"])
     with pytest.raises(InvalidRequestError):
         await provider(rec).extract([])
+    with pytest.raises(InvalidRequestError):
+        await provider(rec).extract(["http://localhost:8080/admin"])
     assert rec.requests == []
 
 
