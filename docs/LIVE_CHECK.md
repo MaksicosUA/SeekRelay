@@ -169,3 +169,38 @@ Leave 15-20 s between searches, or the upstream engines start blocking the insta
 The client-side figures include the network and TLS; Tavily's own `response_time` for one
 raw search was 0.99 s. `SEEKRELAY_TIME_BUDGET=10` to `15` also fits Tavily, with room for
 one fallback.
+
+## Run of 2026-10-31: Tavily, before the 0.2.0 release
+
+| | |
+|---|---|
+| Service | Tavily API, free "Researcher" plan |
+| Client | The built wheel in a clean virtual environment on Python 3.12: commit `25f3716` plus packaging changes, with the same `src/` |
+| Machine | The same Linux workstation |
+| Volume | About 30 requests. All traffic from the library went to `api.tavily.com` |
+| Not covered | HTTP 429, 432, 433, 434 and retries; SearXNG and the Brave Search API |
+
+### Behaviour after the security changes
+
+| Check | Observed | Result |
+|---|---|---|
+| Search in English, Ukrainian, Russian news and Persian, with `depth="advanced"` and `include_raw_content` | All answered; raw text filled for 2 of 2 results; ZWNJ removed from Persian text as documented | as designed |
+| Ordinary queries with the words `api key` and `password reset token` | Not blocked | as designed |
+| Domain filters, now also applied on the client | One domain 5 of 5, `python.org` with subdomains 5 of 5, two domains 8 of 8, exclusion: nothing leaked. Cyrillic and punycode spellings of one domain: 5 of 5 and one cache entry | as designed |
+| Extract 4 URLs | 3 pages, 1 unknown host in `failed`, Cyrillic URL percent-encoded in `to_llm_context()` | as designed |
+| Real pages that discuss hidden text | 83 and 36 invisible characters in the extracted text, 0 in `to_llm_context()`; every `<` and `>` in the text escaped | as designed |
+| Provider answer | 552 characters on their own lines inside `<provider_answer>` | as designed |
+| `PIIGuard` on made-up data | E-mail, percent-encoded e-mail, card, IBAN, token, password and a token in an `extract` URL blocked; no request sent; values absent from the errors. An e-mail as a domain filter raised `ValueError` | as designed |
+| Bad key with a backup behind it | HTTP 401, served by the backup, then the bad provider skipped by cooldown with no request | as designed |
+| `time_budget=0.05` | Call ended after 51 ms | as designed |
+| CLI | Text, JSON, LLM and extract output exit 0, personal data exit 3, a bad key exit 1. Without `--env-file`, a real `./.env` was ignored: exit 2. No control characters and no key in any output | as designed |
+| `examples/agent_tool.py` | Answer, refusal and invalid-request text all returned | as designed |
+| Cache hit | No request sent, `from_cache=True` | as designed, but `latency_ms` repeats the first call (1813 ms) instead of the hit |
+
+### Numbers
+
+| Measurement | Value |
+|---|---|
+| Search through SeekRelay | 1.1-3.5 s, median 2.1 s (15 searches, filters and `depth="advanced"` included) |
+| Extract 4 URLs | 1.1 s |
+| Extract 1 URL with `advanced=True`, already fetched | 0.17 s |

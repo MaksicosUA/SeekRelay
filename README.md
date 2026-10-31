@@ -48,25 +48,26 @@ between:
 | Cost | credits (free tier) | per request | your server only |
 
 \* depends on the upstream engines. Details, limits and pricing notes:
-[docs/PROVIDERS.md](docs/PROVIDERS.md).
+[docs/PROVIDERS.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/PROVIDERS.md).
 
 ## Install
 
 Requires Python 3.10+. The only runtime dependency is `httpx`.
 
 ```bash
-git clone https://github.com/MaksicosUA/SeekRelay.git && cd SeekRelay
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-cp .env.example .env   # add at least one key or a SearXNG URL
+pip install seekrelay
+export TAVILY_API_KEY=tvly-...   # or BRAVE_API_KEY, or SEARXNG_BASE_URL
+seekrelay search "fastapi background tasks" -n 3
 ```
 
-A `.env` file is read only when you name it: `./.env` may belong to a repository you have
-just cloned, and it could send your queries elsewhere or switch the PII guard off. On the
-command line, put `--env-file .env` before the command, or export the variables. In code,
-`SeekRelay.from_env()` reads only the process environment; pass an absolute path to read a
-file too, such as `env_file=Path(__file__).with_name(".env")`. Variables already set in the
-environment win.
+To keep settings in a file, save
+[.env.example](https://github.com/MaksicosUA/SeekRelay/blob/main/.env.example) as `.env` and
+fill in what you have. A `.env` file is read only when you name it: `./.env` may belong to a
+repository you have just cloned, and it could send your queries elsewhere or switch the PII
+guard off. On the command line, put `--env-file .env` before the command, or export the
+variables. In code, `SeekRelay.from_env()` reads only the process environment; pass an
+absolute path to read a file too, such as `env_file=Path(__file__).with_name(".env")`.
+Variables already set in the environment win.
 
 ## Usage
 
@@ -140,7 +141,7 @@ relay = SeekRelay(
 
 ### As an agent tool
 
-[examples/agent_tool.py](examples/agent_tool.py) contains a framework-neutral tool
+[examples/agent_tool.py](https://github.com/MaksicosUA/SeekRelay/blob/main/examples/agent_tool.py) contains a framework-neutral tool
 definition (JSON schema) and a handler that returns `to_llm_context()` text and turns
 errors into short messages the model can act on.
 
@@ -161,24 +162,28 @@ Exit codes: `0` ok, `1` provider failure, `2` usage/configuration error,
 ## Configuration
 
 Everything can be set via environment variables or a `.env` file you name with `--env-file`;
-see [.env.example](.env.example) and [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+see [.env.example](https://github.com/MaksicosUA/SeekRelay/blob/main/.env.example) and [docs/CONFIGURATION.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/CONFIGURATION.md).
 Providers without credentials are skipped, so one `.env` works everywhere.
 
 ## Documentation
 
 | Document | Contents |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, request flow, error model, design decisions |
-| [docs/PROVIDERS.md](docs/PROVIDERS.md) | Parameter mapping, limits and pricing notes per provider |
-| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Environment variables and constructor options |
-| [docs/SECURITY.md](docs/SECURITY.md) | Threat model: prompt injection, data leakage, keys, self-hosting |
-| [docs/EXTENDING.md](docs/EXTENDING.md) | Adding a provider (Exa, Firecrawl, Jina Reader ...) |
-| [docs/DEPLOY_SEARXNG.md](docs/DEPLOY_SEARXNG.md) | Private SearXNG on a VPS with Docker Compose |
-| [docs/LIVE_CHECK.md](docs/LIVE_CHECK.md) | Results of runs against real services, compared with the code's assumptions |
+| [docs/ARCHITECTURE.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/ARCHITECTURE.md) | Components, request flow, error model, design decisions |
+| [docs/PROVIDERS.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/PROVIDERS.md) | Parameter mapping, limits and pricing notes per provider |
+| [docs/CONFIGURATION.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/CONFIGURATION.md) | Environment variables and constructor options |
+| [docs/SECURITY.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/SECURITY.md) | Threat model: prompt injection, data leakage, keys, self-hosting |
+| [docs/EXTENDING.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/EXTENDING.md) | Adding a provider (Exa, Firecrawl, Jina Reader ...) |
+| [docs/DEPLOY_SEARXNG.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/DEPLOY_SEARXNG.md) | Private SearXNG on a VPS with Docker Compose |
+| [docs/LIVE_CHECK.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/LIVE_CHECK.md) | Results of runs against real services, compared with the code's assumptions |
 
 ## Development
 
 ```bash
+git clone https://github.com/MaksicosUA/SeekRelay.git && cd SeekRelay
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+
 pytest                  # no network access needed: HTTP is mocked
 ruff check . && ruff format --check .
 mypy                    # strict
@@ -212,7 +217,7 @@ src/seekrelay/
 - The cache is per-process and in-memory.
 - `PIIGuard` is a seatbelt for obvious identifiers, not a DLP system. It prefers letting an
   unusual spelling through to blocking ordinary queries; the known gaps are listed in
-  [docs/SECURITY.md](docs/SECURITY.md#pii-guard-details).
+  [docs/SECURITY.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/SECURITY.md#pii-guard-details).
 - In `--format llm` and `to_llm_context()`, URLs are percent-encoded, so a Cyrillic path shows
   as `%D0%...` and a Cyrillic host in punycode. Zero-width joiners and variation selectors are
   removed, which also affects Persian text and emoji sequences.
@@ -248,10 +253,13 @@ fallback after a bad key all worked.
 | Extracting 4 URLs | 0.9 s: 3 pages, 1 reported as failed |
 | Results for `max_results=5` / `20` | 2-5 / 11: an upper bound, not a promise |
 
+A second run of about 30 requests with the built package, after the security changes,
+showed the same behaviour: search 1.1-3.5 s, median 2.1 s.
+
 Tavily accepted a query with an e-mail address, so rely on `PIIGuard` rather than on
 provider-side checks. Full results and how to reproduce them:
-[docs/LIVE_CHECK.md](docs/LIVE_CHECK.md).
+[docs/LIVE_CHECK.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/LIVE_CHECK.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/MaksicosUA/SeekRelay/blob/main/LICENSE)

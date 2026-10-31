@@ -17,6 +17,9 @@ All notable changes to this project are documented here. The format follows
 - `PIIGuard` detects Ukrainian tax numbers (`detect_tax_ids`) and secrets (`detect_secrets`).
   Both are on by default, and a guard built to switch off the older detectors keeps them on.
 - `NoProviderConfiguredError`, a `ConfigurationError` for "no provider has credentials".
+- Release workflow: a version tag builds the package, tests the wheel and publishes to PyPI
+  through Trusted Publishing.
+- `.env.example` in the source distribution.
 
 ### Changed
 - `./.env` is no longer read automatically: name the file with `--env-file .env` or
@@ -28,6 +31,7 @@ All notable changes to this project are documented here. The format follows
 - `to_llm_context()`: URLs are percent-encoded with internationalised hosts in punycode,
   attributes are limited to 1000 characters, and the provider answer sits on its own lines.
 - `is_http_url()` applies `MAX_URL_LENGTH`, so longer URLs from providers are dropped.
+- The README installs from PyPI, and its links are absolute so they work on the PyPI page.
 - Tracebacks of unexpected provider errors moved from `ERROR` to `DEBUG`.
 - Text format: page content from `extract` is indented by three spaces.
 - Tavily: every search now sends `include_published_date`, because Tavily otherwise returns

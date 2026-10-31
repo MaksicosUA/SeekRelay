@@ -49,7 +49,17 @@ seekrelay = "seekrelay.cli:main"
 packages = ["src/seekrelay"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "docs", "examples", "deploy", "README.md", "CHANGELOG.md", "LICENSE"]
+include = [
+    "src",
+    "tests",
+    "docs",
+    "examples",
+    "deploy",
+    ".env.example",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
