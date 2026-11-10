@@ -27,14 +27,17 @@ __all__ = [
     "AuthenticationError",
     "ConfigurationError",
     "InvalidRequestError",
+    "LimitExceededError",
     "NoProviderConfiguredError",
     "ProviderError",
+    "ProviderTimeoutError",
     "ProviderUnavailableError",
     "QueryRejectedError",
     "QuotaExceededError",
     "RateLimitError",
     "ResponseFormatError",
     "SeekRelayError",
+    "TimeBudgetExceededError",
     "UnsupportedOperationError",
 ]
 
@@ -62,6 +65,17 @@ class QueryRejectedError(SeekRelayError):
     def __init__(self, message: str, *, findings: Sequence[str] = ()) -> None:
         super().__init__(message)
         self.findings: tuple[str, ...] = tuple(findings)
+
+
+class LimitExceededError(SeekRelayError):
+    """A local limit of this relay (``max_requests_per_minute``) stopped the call.
+
+    Nothing was sent. ``retry_after`` is the number of seconds until the next call can pass.
+    """
+
+    def __init__(self, message: str, *, retry_after: float) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class ProviderError(SeekRelayError):
@@ -121,6 +135,25 @@ class ProviderUnavailableError(ProviderError):
     """Timeouts, connection errors, HTTP 5xx or a temporarily degraded provider."""
 
     retryable = True
+
+
+class ProviderTimeoutError(ProviderUnavailableError):
+    """The provider did not finish one request within its ``timeout``.
+
+    Not retried: a provider that hung once usually hangs again, and a second wait of the
+    same length would use up the time the next provider needs.
+    """
+
+    retryable = False
+
+
+class TimeBudgetExceededError(ProviderUnavailableError):
+    """The relay call's ``time_budget`` ran out while this provider was working.
+
+    Not the provider's fault, so it does not count against the provider's health.
+    """
+
+    retryable = False
 
 
 class InvalidRequestError(ProviderError):

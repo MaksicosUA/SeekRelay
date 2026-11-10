@@ -42,12 +42,15 @@ often; check the official pages before budgeting.
 | (always) | `include_published_date: true` (a beta parameter), because Tavily otherwise sends dates only for news; `published_at` stays empty when Tavily has no date |
 | provider option `include_answer=True` | `include_answer: "basic"` |
 
-`/extract`: URLs are de-duplicated and sent in batches of 20 (the documented maximum),
-concurrently; `extract_depth` is `basic` or `advanced` (`advanced=True`), format
-`markdown`. Successful pages and `failed_results` are merged. If some batches fail, the
-successful ones are kept and the URLs of failed batches are reported in `failed` (so a
-retry never pays for the same pages twice); only when every batch fails is the error
-raised for the relay to retry or fall back.
+`/extract`: URLs are de-duplicated, at most 100 per call, and sent in batches of 20 (the
+documented maximum), concurrently; `extract_depth` is `basic` or `advanced`
+(`advanced=True`), format `markdown`. Successful pages and `failed_results` are merged. If
+some batches fail, the successful ones are kept and the URLs of failed batches are reported
+in `failed` (so a retry never pays for the same pages twice); the error of the failed
+batches is in `batch_error`, and an exhausted quota there still pauses the provider. Only
+when every batch fails is the error raised for the relay to retry or fall back. With a time
+budget, batches still running 50 ms before it runs out are cancelled and reported in
+`failed`, so the finished ones are not lost with the call.
 
 ### Status codes
 

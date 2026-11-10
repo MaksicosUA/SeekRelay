@@ -204,3 +204,24 @@ one fallback.
 | Search through SeekRelay | 1.1-3.5 s, median 2.1 s (15 searches, filters and `depth="advanced"` included) |
 | Extract 4 URLs | 1.1 s |
 | Extract 1 URL with `advanced=True`, already fetched | 0.17 s |
+
+## Run of 2026-11-10: events and fallback, before the 0.3.0 release
+
+| | |
+|---|---|
+| Service | Tavily API, free "Researcher" plan, and two local HTTP servers |
+| Client | The working tree of 0.3.0 on Python 3.12, compared with 0.2.1 from PyPI |
+| Volume | 3 searches and 1 extract of 2 URLs on Tavily (about 4 credits); requests with a made-up key cost nothing |
+| Not covered | SearXNG and the Brave Search API; an exhausted quota in part of an `extract` (covered by tests only) |
+
+| Check | Observed | Result |
+|---|---|---|
+| A made-up Tavily key first, the real one behind it | Events `failure` (401), `cooldown`, `provider_down`, `fallback`, `served`; the answer came from the real key and `to_llm_context()` marked it as a backup answer | as designed |
+| The next search while the first provider is paused | Only `fallback` and `served`, no second `provider_down` | as designed |
+| The same search again | One `served` event with `from_cache=True` | as designed |
+| Extract 2 URLs | 2 pages, 0 failed, 0.43 s | as designed |
+| `stats()` and `status()` after the run | The paused provider: 1 call, 1 failure, 1 cooldown, `down` with 296 s of cooldown left; the real one: 3 calls, 3 answers as backup, average 1346 ms | as designed |
+| CLI search with `--format llm` | Exit 0, closed wrapper, nothing on stderr, no key in any output | as designed |
+| A local server that never answers, a working one behind it, `timeout=1` | 0.2.1: answer after 2.53 s (the hung request was retried); 0.3.0: after 1.00 s | as designed |
+| 100,000 searches with 202,000 events (fake providers) | Live objects unchanged, peak memory +0.1 MiB | as designed |
+

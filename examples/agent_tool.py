@@ -17,6 +17,7 @@ from typing import Any
 from seekrelay import (
     AllProvidersFailedError,
     InvalidRequestError,
+    LimitExceededError,
     QueryRejectedError,
     SeekRelay,
 )
@@ -52,9 +53,15 @@ async def handle_tool_call(relay: SeekRelay, arguments: dict[str, Any]) -> str:
     try:
         response = await relay.search(query, **options)
     except QueryRejectedError as exc:
-        return f"Search not performed: {exc}"
-    except (ValueError, TypeError, InvalidRequestError) as exc:
-        return f"Invalid search request: {exc}"
+        kinds = ", ".join(exc.findings) or "personal data"  # kinds only, never the values
+        return f"Search not performed: the query contains {kinds}. Remove it and try again."
+    except LimitExceededError as exc:
+        return f"Too many searches. Wait {exc.retry_after:.0f} s or answer without searching."
+    except (ValueError, TypeError) as exc:
+        return f"Invalid search request: {exc}"  # SeekRelay's own check of the arguments
+    except InvalidRequestError:
+        # The provider's own words would reach the model outside the untrusted block.
+        return "The search provider rejected this request. Rephrase the query."
     except AllProvidersFailedError:
         return "Web search is currently unavailable. Answer without it and say so."
     return response.to_llm_context(max_chars_per_result=1200)

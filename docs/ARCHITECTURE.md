@@ -22,6 +22,8 @@ flowchart LR
     SR --> PII[PIIGuard]
     SR --> Cache[TTLCache]
     SR --> RP[RetryPolicy]
+    SR --> Mon["Monitor<br/>stats() / status()"]
+    SR -.->|on_event| App
     SR --> P1[TavilyProvider]
     SR --> P2[BraveProvider]
     SR --> P3[SearXNGProvider]
@@ -37,10 +39,11 @@ flowchart LR
 | `errors.py` | Exception hierarchy; `retryable` and `fallback` flags drive the relay |
 | `providers/base.py` | Owns the `httpx.AsyncClient`, sends requests, maps transport errors and HTTP status codes to exceptions |
 | `providers/*.py` | Translate `SearchQuery` to one API and the answer back; provider-specific status codes |
-| `relay.py` | Ordering, retries, fallback, cooldown, cache, de-duplication, sync wrapper |
+| `relay.py` | Ordering, retries, fallback, cooldown, cache, de-duplication, time budget, rate limit, sync wrapper |
+| `events.py` | `RelayEvent` for `on_event`, the counters and up/down state behind `stats()` and `status()` |
 | `pii.py` | Detects e-mails, Luhn-valid card numbers, mod-97-valid IBANs, Ukrainian tax numbers and secrets (phones optional) |
 | `_text.py` | The characters that must not reach a terminal or a model; used by rendering, the CLI, logging and the guard |
-| `cache.py` | In-memory TTL + LRU cache |
+| `cache.py` | In-memory TTL + LRU cache, limited by entries and by estimated size |
 | `config.py` | Build providers/relay from environment variables; minimal `.env` reader |
 | `cli.py` | `seekrelay` command |
 
@@ -60,6 +63,9 @@ sequenceDiagram
     G->>G: cache lookup
     alt cache hit
         G-->>C: SearchResponse(from_cache=True)
+    end
+    alt max_requests_per_minute used up
+        G-->>C: LimitExceededError (nothing was sent)
     end
     loop providers in priority order
         alt provider in cooldown
@@ -82,7 +88,8 @@ sequenceDiagram
 ```
 
 `extract()` follows the same loop, restricted to providers with
-`supports_extract = True`.
+`supports_extract = True`, for at most 100 URLs per call. Each step is counted and, with
+`on_event`, reported as an event ([MONITORING.md](MONITORING.md)).
 
 ## Error model
 
@@ -91,7 +98,9 @@ the relay does with it:
 
 | Exception | Typical cause | `retryable` | `fallback` | Cooldown |
 |---|---|:-:|:-:|:-:|
-| `ProviderUnavailableError` | timeout, connection or other HTTP-client error, HTTP 408/5xx, Tavily 434, SearXNG with no results while upstream engines time out or fail | yes | yes | no |
+| `ProviderUnavailableError` | connection or other HTTP-client error, HTTP 408/5xx, Tavily 434, SearXNG with no results while upstream engines time out or fail | yes | yes | no |
+| `ProviderTimeoutError` (a `ProviderUnavailableError`) | one request took longer than `timeout` | **no** | yes | no |
+| `TimeBudgetExceededError` (a `ProviderUnavailableError`) | the call's `time_budget` ran out while this provider was working; does not count against its health | no | yes | no |
 | `RateLimitError` | HTTP 429 (`retry_after` parsed from `Retry-After` / `X-RateLimit-Reset`); SearXNG with no results while its upstream engines are suspended or behind a CAPTCHA (`retry_after` 180 s) | yes | yes | for `retry_after` seconds, if longer than `max_delay` |
 | `QuotaExceededError` | Tavily 432/433, HTTP 402, Brave 429 with an exhausted plan (`QUOTA_LIMITED`) | no | yes | yes |
 | `AuthenticationError` | HTTP 401/403, SearXNG JSON disabled | no | yes | yes |
@@ -109,10 +118,11 @@ Errors outside the provider hierarchy:
 | Exception | Raised when |
 |---|---|
 | `QueryRejectedError` | PII guard blocked the query or URL; carries `findings` (kinds only, never values) |
+| `LimitExceededError` | `max_requests_per_minute` is used up; carries `retry_after`; nothing was sent |
 | `ConfigurationError` | empty key, invalid base URL, unknown provider name, invalid setting |
 | `NoProviderConfiguredError` | a `ConfigurationError`: no provider has credentials |
 | `AllProvidersFailedError` | every provider failed or was skipped; carries `attempts` |
-| `ValueError` / `TypeError` | invalid `SearchQuery` arguments |
+| `ValueError` / `TypeError` | invalid `SearchQuery` arguments, an invalid or local `extract` URL, more than 100 URLs |
 
 ### Why invalid requests do not fall back
 
@@ -127,6 +137,8 @@ a query with an e-mail address, so `PIIGuard` is the layer that stops it.
 
 * Retries are per provider and only for `retryable` errors, with exponential back-off
   (`base_delay * 2^(n-1)`, capped by `max_delay`, +/- jitter).
+* A request that runs out of `timeout` is not retried. A provider that hung once usually
+  hangs again, and a second wait of 20 s would use up the budget the next provider needs.
 * A `Retry-After` shorter than `max_delay` is honoured exactly. A longer one is not
   waited for; the relay falls back immediately, because an agent waiting a minute is
   worse than an answer from the next provider, and skips that provider for `retry_after`
@@ -135,10 +147,12 @@ a query with an e-mail address, so `PIIGuard` is the layer that stops it.
 * Auth and quota errors are never retried and put the provider into cooldown
   (`cooldown_seconds`, default 300 s), so a month of exhausted credits does not cost a
   failed round trip on every request.
-* Without a limit, one call can take up to providers x attempts x timeout (about two
-  minutes with the defaults). `time_budget` caps the whole call: the request running
-  when it expires is cancelled and recorded as `ProviderUnavailableError`, providers not
-  tried yet are recorded as `TimeBudget`, and the call raises `AllProvidersFailedError`.
+* `time_budget` (30 s by default) caps the whole call: the request running when it expires
+  is cancelled and recorded as `TimeBudgetExceededError`, providers not tried yet are
+  recorded as `TimeBudget`, and the call raises `AllProvidersFailedError`. With a hung first
+  provider the timeout ends its turn after 20 s and the next one still has 10 s. Tavily
+  returns the batches of an `extract` that finished just before the deadline, because they
+  are paid for; the rest are reported in `failed`.
 
 ## Design decisions
 
@@ -157,14 +171,18 @@ a query with an e-mail address, so `PIIGuard` is the layer that stops it.
 | Rendering has an exact table instead of Unicode normalisation | NFKC changes what a page says (`10⁶` becomes `106`) and can hide a bracket from the escaper. The guard does use NFKC, because it only scans a copy |
 | No `.env` is read unless named | A working directory can be a stranger's repository, and a file there could redirect queries or switch the guard off |
 | No logging of secrets or PII | `repr()` of providers omits keys; `QueryRejectedError` lists kinds of data only |
+| Events instead of built-in notifiers | Every service has its own API and its own key; the package hands over data and the application decides where it goes. Events are not stored, so memory does not grow with traffic |
+| Concurrency capped per provider | The cap protects each API from bursts; one relay-wide cap would let a slow provider hold the slots of the others |
+| A rate limit refuses instead of waiting | Waiting would turn a looping agent into a slow one without telling anyone; an error and a `limit_exceeded` event are visible at once |
 | Library logger has a `NullHandler` | The application decides where logs go (`logging.getLogger("seekrelay")`) |
 
 ## Concurrency
 
 `SeekRelay.search` is safe to call concurrently from one event loop
-(`asyncio.gather`). Each provider shares one `httpx.AsyncClient` connection pool. The
-cache and cooldown state are plain dictionaries mutated without awaits in between, so
-no locking is needed within one loop. Do not share one relay between threads or
+(`asyncio.gather`). Each provider shares one `httpx.AsyncClient` connection pool and lets
+`max_concurrency` requests (8) run at once; the rest wait for a slot. The cache, cooldown
+state and counters are plain dictionaries mutated without awaits in between, so no
+locking is needed within one loop. Do not share one relay between threads or
 event loops; create one per loop.
 
 ## Extension points

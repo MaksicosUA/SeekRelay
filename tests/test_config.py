@@ -77,12 +77,44 @@ async def test_relay_settings_from_env() -> None:
 
 
 async def test_time_budget_from_env() -> None:
+    relay = build_relay_from_env({"TAVILY_API_KEY": "t"})
+    assert relay._time_budget == 30
+    await relay.aclose()
     relay = build_relay_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIME_BUDGET": "15"})
     assert relay._time_budget == 15
     await relay.aclose()
     relay = build_relay_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_TIME_BUDGET": "0"})
     assert relay._time_budget is None
     await relay.aclose()
+
+
+async def test_limits_from_env() -> None:
+    relay = build_relay_from_env({"TAVILY_API_KEY": "t"})
+    assert relay.providers[0]._slots is not None
+    assert relay._limiter is None
+    assert relay._cache is not None and relay._cache._max_bytes == 64 * 1024 * 1024
+    await relay.aclose()
+    relay = build_relay_from_env(
+        {
+            "TAVILY_API_KEY": "t",
+            "SEEKRELAY_MAX_CONCURRENCY": "0",
+            "SEEKRELAY_MAX_REQUESTS_PER_MINUTE": "30",
+            "SEEKRELAY_CACHE_MAX_MB": "0.5",
+        }
+    )
+    assert relay.providers[0]._slots is None
+    assert relay._max_requests_per_minute == 30
+    assert relay._cache is not None and relay._cache._max_bytes == 512 * 1024
+    await relay.aclose()
+    relay = build_relay_from_env({"TAVILY_API_KEY": "t", "SEEKRELAY_CACHE_MAX_MB": "0"})
+    assert relay._cache is not None and relay._cache._max_bytes is None
+    await relay.aclose()
+
+
+@pytest.mark.parametrize("name", ["SEEKRELAY_MAX_CONCURRENCY", "SEEKRELAY_MAX_REQUESTS_PER_MINUTE"])
+def test_limits_must_be_whole_numbers(name: str) -> None:
+    with pytest.raises(ConfigurationError, match=name):
+        build_relay_from_env({"TAVILY_API_KEY": "t", name: "2.5"})
 
 
 async def test_env_file_is_merged_and_environment_wins(tmp_path: Path) -> None:

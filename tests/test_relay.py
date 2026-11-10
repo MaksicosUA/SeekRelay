@@ -434,7 +434,7 @@ async def test_time_budget_cancels_and_skips_remaining(clock: FakeClock, sleep: 
         await relay.search("q")
     assert loop.time() - started < 1
     assert [(a.provider, a.error) for a in info.value.attempts] == [
-        ("slow", "ProviderUnavailableError"),
+        ("slow", "TimeBudgetExceededError"),
         ("later", "TimeBudget"),
     ]
     assert "time budget" in info.value.attempts[0].message

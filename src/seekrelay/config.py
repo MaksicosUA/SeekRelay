@@ -15,9 +15,15 @@ Variables (all optional except at least one provider's credentials):
 ``SEEKRELAY_MAX_ATTEMPTS``      Attempts per provider. Default ``2``.
 ``SEEKRELAY_CACHE_TTL``         Cache TTL in seconds, ``0`` disables. Default ``600``.
 ``SEEKRELAY_COOLDOWN``          Cooldown after auth/quota errors. Default ``300``.
-``SEEKRELAY_TIME_BUDGET``       Max seconds per call across all providers; ``0`` or
+``SEEKRELAY_TIME_BUDGET``       Max seconds per call across all providers; ``0`` means
+                                no limit. Default ``30``.
+``SEEKRELAY_MAX_CONCURRENCY``   Requests in flight to each provider; ``0`` means no cap.
+                                Default ``8``.
+``SEEKRELAY_MAX_REQUESTS_PER_MINUTE`` Calls per minute that reach the providers; ``0`` or
                                 empty means no limit. Default: no limit.
-``SEEKRELAY_PII_GUARD``       ``false`` disables the PII guard. Default ``true``.
+``SEEKRELAY_CACHE_MAX_MB``      Cache size limit in MiB; ``0`` limits entries only.
+                                Default ``64``.
+``SEEKRELAY_PII_GUARD``         ``false`` disables the PII guard. Default ``true``.
 =============================== ===================================================
 
 Providers listed in ``SEEKRELAY_PROVIDERS`` but missing credentials are skipped
@@ -166,6 +172,10 @@ def build_providers_from_env(
             f"Unknown provider(s): {', '.join(unknown)}. Known: {', '.join(DEFAULT_PROVIDER_ORDER)}"
         )
     timeout = _number(env, "SEEKRELAY_TIMEOUT", 20.0)
+    common: dict[str, Any] = {
+        "timeout": timeout,
+        "max_concurrency": _number(env, "SEEKRELAY_MAX_CONCURRENCY", 8, int) or None,
+    }
 
     providers: list[SearchProvider] = []
     for name in dict.fromkeys(names):
@@ -176,14 +186,14 @@ def build_providers_from_env(
                     TavilyProvider(
                         key,
                         include_answer=_bool(env, "TAVILY_INCLUDE_ANSWER", False),
-                        timeout=timeout,
+                        **common,
                     )
                 )
                 continue
         elif name == "brave":
             key = _get(env, *_BRAVE_KEY_NAMES)
             if key:
-                providers.append(BraveProvider(key, timeout=timeout))
+                providers.append(BraveProvider(key, **common))
                 continue
         elif name == "searxng":
             base_url = _get(env, "SEARXNG_BASE_URL")
@@ -194,7 +204,7 @@ def build_providers_from_env(
                         base_url,
                         engines=parse_csv(env.get("SEARXNG_ENGINES")),
                         headers={"Authorization": auth} if auth else None,
-                        timeout=timeout,
+                        **common,
                     )
                 )
                 continue
@@ -235,11 +245,16 @@ def build_relay_from_env(
         env = _merge_env_file(env, env_file)
     order = overrides.pop("order", None)
     providers = build_providers_from_env(env, order=order)
+    cache_mb = _number(env, "SEEKRELAY_CACHE_MAX_MB", 64.0)
     settings: dict[str, Any] = {
         "retry": RetryPolicy(max_attempts=_number(env, "SEEKRELAY_MAX_ATTEMPTS", 2, int) or 1),
         "cache_ttl": _number(env, "SEEKRELAY_CACHE_TTL", 600.0) or None,
+        "cache_max_bytes": max(int(cache_mb * 1024 * 1024), 1) if cache_mb else None,
         "cooldown_seconds": _number(env, "SEEKRELAY_COOLDOWN", 300.0),
-        "time_budget": _number(env, "SEEKRELAY_TIME_BUDGET", 0.0) or None,
+        "time_budget": _number(env, "SEEKRELAY_TIME_BUDGET", 30.0) or None,
+        "max_requests_per_minute": (
+            _number(env, "SEEKRELAY_MAX_REQUESTS_PER_MINUTE", 0, int) or None
+        ),
         "pii_guard": PIIGuard() if _bool(env, "SEEKRELAY_PII_GUARD", True) else None,
     }
     settings.update(overrides)

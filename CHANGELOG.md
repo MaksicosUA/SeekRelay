@@ -6,6 +6,51 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
+### Added
+- `SeekRelay(on_event=...)`: a plain function receives a `RelayEvent` at each step of a call
+  (`served`, `retry`, `failure`, `cooldown`, `fallback`, `all_failed`, `blocked`,
+  `limit_exceeded`, `provider_down`, `provider_up`) with a `severity` of `info`, `warning`
+  or `alert`. Events hold no query, URLs, keys or provider text, and the relay keeps none of
+  them. `provider_down` comes once per outage, after a cooldown or 3 failed calls in a row.
+  See `docs/MONITORING.md`.
+- `relay.stats()` (counters since the start) and `relay.status()` (each provider `up` or
+  `down` right now). Their size does not depend on traffic: 100,000 searches left memory
+  where it was.
+- `max_requests_per_minute` / `SEEKRELAY_MAX_REQUESTS_PER_MINUTE`: over the limit a call
+  raises the new `LimitExceededError` (with `retry_after`) at once and sends nothing. Off by
+  default; cache hits are free.
+- `max_concurrency` on every provider / `SEEKRELAY_MAX_CONCURRENCY`: at most 8 requests in
+  flight to one provider by default; the rest wait for a slot.
+- `cache_max_bytes` / `SEEKRELAY_CACHE_MAX_MB`: the cache is also limited by estimated size,
+  64 MiB by default. `TTLCache` takes `max_bytes` and `sizeof`.
+- `search(..., time_budget=...)` and `extract(..., time_budget=...)` set the budget for one
+  call; `None` lifts it for that call.
+- `ProviderTimeoutError` and `TimeBudgetExceededError`, both `ProviderUnavailableError`
+  subclasses, and `ExtractResponse.batch_error`.
+- Examples: `telegram_alerts.py`, `hourly_summary.py`, `events_to_jsonl.py`.
+
+### Changed
+- `time_budget` / `SEEKRELAY_TIME_BUDGET` default to 30 seconds instead of no limit. Pass
+  `time_budget=None` or set `SEEKRELAY_TIME_BUDGET=0` for the old behaviour. An empty
+  `SEEKRELAY_TIME_BUDGET=`, as in the old `.env.example`, now means the default too.
+- A request that runs out of `timeout` is no longer retried: the relay goes to the next
+  provider at once (`ProviderTimeoutError`). With a 20 s timeout, two attempts used up the
+  whole budget before the backup could answer.
+- A provider cancelled because the time budget ran out is recorded as
+  `TimeBudgetExceededError` instead of `ProviderUnavailableError`.
+- `extract` takes at most 100 URLs per call (`ValueError` in the relay,
+  `InvalidRequestError` from `TavilyProvider`).
+- `to_llm_context()` says when the answer comes from a backup provider.
+- `examples/agent_tool.py` no longer passes the provider's error text to the model.
+
+### Fixed
+- An exhausted quota in some batches of an `extract` did not pause Tavily, so each later call
+  paid for a failed round trip.
+- When the time budget ran out during an `extract`, batches already finished, and paid for,
+  were lost with the call. Tavily now returns them just before the deadline.
+
 ## [0.2.1] - 2026-10-31
 
 ### Changed

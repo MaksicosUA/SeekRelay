@@ -27,8 +27,10 @@ between:
 |---|---|
 | Vendor lock-in, price changes | Providers are interchangeable behind `SearchProvider`; order is configuration |
 | Credits run out mid-month (requests just stop) | `QuotaExceededError` -> provider goes into cooldown -> next provider |
-| Timeouts, 5xx, 429 | Retries with exponential back-off, honours short `Retry-After`, falls back on long ones and skips that provider until then |
-| An agent stuck waiting while every provider is slow | `time_budget` caps one call across all providers and retries |
+| 5xx, 429, timeouts | Retries 5xx and 429 with exponential back-off, honours short `Retry-After`, falls back on long ones and skips that provider until then; a timed-out request goes straight to the next provider |
+| An agent stuck waiting while every provider is slow | `time_budget` (30 s by default) caps one call across all providers and retries |
+| A fallback hides that a provider is down | `on_event`, `stats()` and `status()` hand your code alerts and counters; nothing is stored and no service is built in |
+| An agent in a loop burns the credits | `max_requests_per_minute`, at most 100 URLs per `extract`, at most 8 requests in flight per provider |
 | Different response shapes | One normalised `SearchResponse` / `SearchResult` model |
 | Prompt injection via web pages | `to_llm_context()` removes invisible characters, escapes all web text and labels it untrusted |
 | Agents leaking personal data or keys into queries | `PIIGuard` blocks e-mails, card numbers, IBANs, Ukrainian tax numbers and secrets before any request |
@@ -145,6 +147,23 @@ relay = SeekRelay(
 definition (JSON schema) and a handler that returns `to_llm_context()` text and turns
 errors into short messages the model can act on.
 
+### Monitoring
+
+```python
+def on_event(event):  # a plain function; it runs inside the call, so keep it fast
+    if event.severity == "alert":  # a provider went down or came back
+        alert_queue.put_nowait(f"{event.provider}: {event.kind} ({event.error})")
+
+
+relay = SeekRelay.from_env(on_event=on_event)
+relay.stats().providers["tavily"].served_as_backup  # counters since start
+relay.status()["tavily"].state  # "up" or "down"
+```
+
+Events never hold the query, URLs or keys. [docs/MONITORING.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/MONITORING.md)
+lists every event; [examples/telegram_alerts.py](https://github.com/MaksicosUA/SeekRelay/blob/main/examples/telegram_alerts.py) sends the
+alerts to a Telegram chat.
+
 ### CLI
 
 ```bash
@@ -172,6 +191,7 @@ Providers without credentials are skipped, so one `.env` works everywhere.
 | [docs/ARCHITECTURE.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/ARCHITECTURE.md) | Components, request flow, error model, design decisions |
 | [docs/PROVIDERS.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/PROVIDERS.md) | Parameter mapping, limits and pricing notes per provider |
 | [docs/CONFIGURATION.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/CONFIGURATION.md) | Environment variables and constructor options |
+| [docs/MONITORING.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/MONITORING.md) | Events, counters and provider state: how to see that search is degrading |
 | [docs/SECURITY.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/SECURITY.md) | Threat model: prompt injection, data leakage, keys, self-hosting |
 | [docs/EXTENDING.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/EXTENDING.md) | Adding a provider (Exa, Firecrawl, Jina Reader ...) |
 | [docs/DEPLOY_SEARXNG.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/DEPLOY_SEARXNG.md) | Private SearXNG on a VPS with Docker Compose |
@@ -194,6 +214,7 @@ Project layout:
 ```
 src/seekrelay/
 ├── relay.py          # SeekRelay, RetryPolicy, de-duplication
+├── events.py         # RelayEvent, stats() and status()
 ├── models.py         # SearchQuery, SearchResponse, ... + to_llm_context()
 ├── errors.py         # exception hierarchy (retryable / fallback flags)
 ├── pii.py            # PIIGuard
@@ -214,7 +235,7 @@ src/seekrelay/
   providers' documentation (October 2026). SearXNG and Tavily have also been checked live;
   the Brave Search API has not yet, so run a smoke test with your key before relying on it.
 - Only Tavily implements `extract`. Brave and SearXNG return snippets.
-- The cache is per-process and in-memory.
+- The cache, the counters and the rate limit are per-process and in-memory.
 - `PIIGuard` is a seatbelt for obvious identifiers, not a DLP system. It prefers letting an
   unusual spelling through to blocking ordinary queries; the known gaps are listed in
   [docs/SECURITY.md](https://github.com/MaksicosUA/SeekRelay/blob/main/docs/SECURITY.md#pii-guard-details).

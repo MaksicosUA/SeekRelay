@@ -15,14 +15,18 @@ from typing import Any, NoReturn
 import httpx
 
 from ..errors import (
+    AuthenticationError,
     ConfigurationError,
     InvalidRequestError,
     ProviderError,
     ProviderUnavailableError,
     QuotaExceededError,
+    RateLimitError,
     ResponseFormatError,
+    TimeBudgetExceededError,
 )
 from ..models import (
+    MAX_EXTRACT_URLS,
     ExtractedPage,
     ExtractResponse,
     FailedExtraction,
@@ -42,6 +46,7 @@ logger = logging.getLogger("seekrelay")
 
 TAVILY_BASE_URL = "https://api.tavily.com"
 EXTRACT_BATCH_SIZE = 20  # documented maximum number of URLs per /extract call
+_BUDGET_MARGIN = 0.05  # seconds: return finished batches before the relay cancels the call
 
 TAVILY_COUNTRY_NAMES: dict[str, str] = {
     # Tavily's `country` parameter takes lower-case English names, not ISO codes. This is
@@ -338,25 +343,26 @@ class TavilyProvider(SearchProvider):
             raise InvalidRequestError(self.name, str(exc)) from exc
         if not unique:
             raise InvalidRequestError(self.name, "no URLs to extract")
+        if len(unique) > MAX_EXTRACT_URLS:
+            raise InvalidRequestError(self.name, f"at most {MAX_EXTRACT_URLS} URLs per call")
 
         started = time.perf_counter()
         batches = [
             unique[i : i + EXTRACT_BATCH_SIZE] for i in range(0, len(unique), EXTRACT_BATCH_SIZE)
         ]
-        outcomes = await asyncio.gather(
-            *(self._extract_batch(b, advanced) for b in batches), return_exceptions=True
-        )
+        outcomes = await self._run_batches(batches, advanced)
 
         # If every batch failed, raise so the relay can retry or fall back. If some
         # succeeded, keep them (their credits are already spent) and report the URLs of
         # failed batches individually instead of failing the whole call, which would
         # make a retry pay for the successful batches again.
         errors = [o for o in outcomes if isinstance(o, BaseException)]
-        if len(errors) == len(outcomes):
-            raise errors[0]
         for error in errors:
             if not isinstance(error, ProviderError):
                 raise error
+        provider_errors = [e for e in errors if isinstance(e, ProviderError)]
+        if len(errors) == len(outcomes):
+            raise _most_telling(provider_errors)
 
         pages: list[ExtractedPage] = []
         failed: list[FailedExtraction] = []
@@ -373,7 +379,33 @@ class TavilyProvider(SearchProvider):
             pages=pages,
             failed=failed,
             latency_ms=self._elapsed_ms(started),
+            batch_error=_detached(_most_telling(provider_errors)) if provider_errors else None,
         )
+
+    async def _run_batches(
+        self, batches: list[list[str]], advanced: bool
+    ) -> list[tuple[list[ExtractedPage], list[FailedExtraction]] | BaseException]:
+        """Run the batches side by side; with a time budget, stop just before it runs out.
+
+        The relay cancels a call when its budget is gone, and the batches finished by then,
+        already paid for, would be lost with it. Returning a moment earlier keeps them.
+        """
+        time_left = self._time_left()
+        timeout = None if time_left is None else max(time_left - _BUDGET_MARGIN, 0.0)
+        tasks = [asyncio.ensure_future(self._extract_batch(b, advanced)) for b in batches]
+        try:
+            await asyncio.wait(tasks, timeout=timeout)
+        finally:
+            for task in tasks:
+                task.cancel()  # only unfinished ones: out of time, or this call was cancelled
+            # Every outcome is collected, so no task keeps running or holds an unread error.
+            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+        return [
+            TimeBudgetExceededError(self.name, "cancelled: the time budget ran out")
+            if isinstance(outcome, asyncio.CancelledError)
+            else outcome
+            for outcome in outcomes
+        ]
 
     async def _extract_batch(
         self, urls: list[str], advanced: bool
@@ -432,3 +464,24 @@ class TavilyProvider(SearchProvider):
                 status_code=status,
             )
         super()._raise_for_status(response)
+
+
+def _most_telling(errors: list[ProviderError]) -> ProviderError:
+    """The error that says most about the provider: a key or quota problem, then a rate limit."""
+    for kinds in ((AuthenticationError, QuotaExceededError), (RateLimitError,)):
+        for error in errors:
+            if isinstance(error, kinds):
+                return error
+    return errors[0]
+
+
+def _detached(error: ProviderError) -> ProviderError:
+    """The error without its traceback and chained errors.
+
+    A traceback keeps its frames alive, and with them a response body of up to 32 MiB, for as
+    long as the response that carries the error is kept.
+    """
+    error.__traceback__ = None
+    error.__cause__ = None
+    error.__context__ = None
+    return error

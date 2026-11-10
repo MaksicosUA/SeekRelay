@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 
 import httpx
 import pytest
@@ -10,12 +12,16 @@ from seekrelay import (
     ConfigurationError,
     InvalidRequestError,
     ProviderError,
+    ProviderTimeoutError,
     ProviderUnavailableError,
     QuotaExceededError,
     RateLimitError,
+    RelayEvent,
     ResponseFormatError,
     SearchQuery,
+    SeekRelay,
     TavilyProvider,
+    TimeBudgetExceededError,
 )
 from seekrelay.providers.tavily import TAVILY_COUNTRY_NAMES
 
@@ -165,7 +171,7 @@ async def test_rate_limit_reads_retry_after() -> None:
 
 async def test_timeout_and_network_errors_become_unavailable() -> None:
     rec = Recorder(httpx.ReadTimeout("slow"))
-    with pytest.raises(ProviderUnavailableError, match="timed out"):
+    with pytest.raises(ProviderTimeoutError, match="timed out"):
         await provider(rec, timeout=1.5).search(SearchQuery("q"))
     rec = Recorder(httpx.ConnectError("refused"))
     with pytest.raises(ProviderUnavailableError, match="ConnectError"):
@@ -332,3 +338,59 @@ async def test_extract_drops_pages_that_are_not_http_urls() -> None:
     rec = Recorder(httpx.Response(200, json={"results": results}))
     response = await provider(rec).extract(["https://a.example/"])
     assert [page.url for page in response.pages] == ["https://a.example/"]
+
+
+async def test_extract_refuses_more_urls_than_the_limit() -> None:
+    rec = Recorder(httpx.Response(200, json={}))
+    with pytest.raises(InvalidRequestError, match="at most 100 URLs"):
+        await provider(rec).extract([f"https://example.com/{i}" for i in range(101)])
+    assert rec.requests == []
+
+
+def _second_batch_hits_quota(request: httpx.Request) -> httpx.Response:
+    urls = json.loads(request.content)["urls"]
+    if urls[0].endswith("/20"):
+        return httpx.Response(432, json={"detail": {"error": "limit"}})
+    return httpx.Response(200, json={"results": [{"url": u, "raw_content": "x"} for u in urls]})
+
+
+async def test_extract_reports_a_quota_hit_in_some_batches() -> None:
+    urls = [f"https://example.com/{i}" for i in range(25)]
+    response = await provider(Recorder(_second_batch_hits_quota)).extract(urls)
+    assert len(response.pages) == 20
+    assert isinstance(response.batch_error, QuotaExceededError)
+    assert response.batch_error.__traceback__ is None  # it must not keep response bodies alive
+    assert "batch_error" not in response.to_dict()
+
+
+async def test_relay_pauses_tavily_after_a_quota_hit_in_some_batches() -> None:
+    events: list[RelayEvent] = []
+    relay = SeekRelay(
+        [provider(Recorder(_second_batch_hits_quota))], cache_ttl=None, on_event=events.append
+    )
+    response = await relay.extract([f"https://example.com/{i}" for i in range(25)])
+    assert (response.provider, len(response.pages), len(response.failed)) == ("tavily", 20, 5)
+    assert relay.cooldown_remaining("tavily") > 0
+    assert [e.kind for e in events] == ["failure", "cooldown", "provider_down", "served"]
+    stats = relay.stats().providers["tavily"]
+    assert (stats.ok, stats.failed, dict(stats.errors)) == (1, 0, {"QuotaExceededError": 1})
+    await relay.aclose()
+
+
+async def test_extract_keeps_finished_batches_when_the_time_budget_runs_out() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        urls = json.loads(request.content)["urls"]
+        if urls[0].endswith("/20"):
+            await asyncio.sleep(5)
+        return httpx.Response(200, json={"results": [{"url": u, "raw_content": "x"} for u in urls]})
+
+    relay = SeekRelay([provider(Recorder(handler))], cache_ttl=None, time_budget=0.3)
+    started = time.perf_counter()
+    response = await relay.extract([f"https://example.com/{i}" for i in range(21)])
+    assert time.perf_counter() - started < 1
+    assert len(response.pages) == 20  # paid for, so kept
+    assert [f.url for f in response.failed] == ["https://example.com/20"]
+    assert "time budget" in response.failed[0].error
+    assert isinstance(response.batch_error, TimeBudgetExceededError)
+    assert relay.cooldown_remaining("tavily") == 0
+    await relay.aclose()

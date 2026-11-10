@@ -2,13 +2,16 @@
 
 A provider is a subclass of `SearchProvider` that translates `SearchQuery` into one API
 call and maps the answer to `SearchResponse`. The base class already handles the HTTP
-client, timeouts, transport errors and common status codes.
+client, timeouts, the cap on requests in flight (`max_concurrency`), transport errors and
+common status codes. Pass `**kwargs` on to `super().__init__()` so these settings reach it.
 
 ## Checklist
 
 1. Create `src/seekrelay/providers/<name>.py`.
 2. Set the class attributes `name` (unique, lower-case) and `supports_extract`.
 3. Validate configuration in `__init__` and raise `ConfigurationError` for missing keys.
+   Send every request through `self._send()`: it applies the timeout, the size limit and
+   the concurrency cap.
 4. Implement `search()`; implement `extract()` if the API can fetch page content.
 5. Map every `SearchQuery` field the API supports. For fields it cannot express:
    apply them client-side (`query.allows_url(url)` for domain filters) or log at DEBUG
@@ -93,6 +96,13 @@ the relay then uses them for `extract` and falls through them for `search`.
 When fetching pages yourself (Crawl4AI, Playwright), validate the target before the
 request: resolve the host and reject loopback, private, link-local and cloud metadata
 addresses, and limit response size and redirects. See SECURITY.md (T10).
+
+If one `extract()` call sends several requests at once, as Tavily's batches do, check
+`self._time_left()` (seconds left in the relay call's `time_budget`, `None` without one)
+and return the finished part shortly before it runs out. The relay cancels the call at the
+deadline, and work finished by then would be lost although it is paid for. Put the error of
+the failed part into `ExtractResponse.batch_error`, so that an exhausted quota still pauses
+the provider.
 
 ## Design rules
 

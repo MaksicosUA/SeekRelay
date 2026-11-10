@@ -8,6 +8,7 @@ import math
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
+from contextvars import ContextVar
 from email.utils import parsedate_to_datetime
 from types import TracebackType
 from typing import Any, ClassVar, NoReturn
@@ -19,6 +20,7 @@ from ..errors import (
     AuthenticationError,
     InvalidRequestError,
     ProviderError,
+    ProviderTimeoutError,
     ProviderUnavailableError,
     QuotaExceededError,
     RateLimitError,
@@ -28,6 +30,7 @@ from ..errors import (
 from ..models import ExtractResponse, SearchQuery, SearchResponse
 
 __all__ = [
+    "DEFAULT_MAX_CONCURRENCY",
     "DEFAULT_TIMEOUT",
     "DEFAULT_USER_AGENT",
     "MAX_RESPONSE_BYTES",
@@ -38,10 +41,14 @@ __all__ = [
 logger = logging.getLogger("seekrelay")
 
 DEFAULT_TIMEOUT = 20.0
+DEFAULT_MAX_CONCURRENCY = 8
 DEFAULT_USER_AGENT = f"seekrelay/{__version__}"
 MAX_RESPONSE_BYTES = 32 * 1024 * 1024  # after decompression: 145 KB of gzip can unpack to 481 MB
 
 _ERROR_KEYS = ("error", "detail", "message", "msg", "description")
+
+# Event-loop time by which the relay call running in this context must end (None: no budget).
+CALL_DEADLINE: ContextVar[float | None] = ContextVar("seekrelay_call_deadline", default=None)
 
 
 def parse_retry_after(value: str | None) -> float | None:
@@ -86,6 +93,9 @@ class SearchProvider(ABC):
 
     A provider owns its ``httpx.AsyncClient`` unless one is injected (handy for tests,
     proxies or connection sharing); an injected client is never closed by the provider.
+
+    ``max_concurrency`` caps the requests in flight to this provider (``None``: no cap).
+    Requests over the cap wait for a free slot; ``timeout`` starts once a request is sent.
     """
 
     name: ClassVar[str] = "base"
@@ -97,10 +107,14 @@ class SearchProvider(ABC):
         timeout: float = DEFAULT_TIMEOUT,
         client: httpx.AsyncClient | None = None,
         user_agent: str = DEFAULT_USER_AGENT,
+        max_concurrency: int | None = DEFAULT_MAX_CONCURRENCY,
     ) -> None:
         if timeout <= 0:
             raise ValueError("timeout must be positive")
+        if max_concurrency is not None and max_concurrency < 1:
+            raise ValueError("max_concurrency must be at least 1 (or None for no cap)")
         self._timeout = timeout
+        self._slots = asyncio.Semaphore(max_concurrency) if max_concurrency else None
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(
             timeout=timeout,
@@ -138,6 +152,14 @@ class SearchProvider(ABC):
 
     # ------------------------------------------------------------------ helpers
 
+    @staticmethod
+    def _time_left() -> float | None:
+        """Seconds left in the relay call's time budget, ``None`` without a budget."""
+        deadline = CALL_DEADLINE.get()
+        if deadline is None:
+            return None
+        return deadline - asyncio.get_running_loop().time()
+
     async def _send(
         self,
         method: str,
@@ -152,11 +174,13 @@ class SearchProvider(ABC):
             request = self._client.build_request(
                 method, url, params=params, json=json, headers=headers, timeout=self._timeout
             )
-            # httpx applies its timeouts to each read, so a body sent a byte at a time would
-            # never trip them: this limit covers the whole exchange.
-            response = await asyncio.wait_for(self._fetch(request), self._timeout)
+            if self._slots is None:
+                response = await self._fetch_within_timeout(request)
+            else:
+                async with self._slots:
+                    response = await self._fetch_within_timeout(request)
         except (asyncio.TimeoutError, httpx.TimeoutException) as exc:
-            raise ProviderUnavailableError(
+            raise ProviderTimeoutError(
                 self.name, f"request timed out after {self._timeout:g}s"
             ) from exc
         except httpx.TransportError as exc:
@@ -180,6 +204,11 @@ class SearchProvider(ABC):
                 status_code=response.status_code,
             )
         return response
+
+    async def _fetch_within_timeout(self, request: httpx.Request) -> httpx.Response:
+        # httpx applies its timeouts to each read, so a body sent a byte at a time would never
+        # trip them: this limit covers the whole exchange.
+        return await asyncio.wait_for(self._fetch(request), self._timeout)
 
     async def _fetch(self, request: httpx.Request) -> httpx.Response:
         """Read a response into memory, up to :data:`MAX_RESPONSE_BYTES` of unpacked data."""

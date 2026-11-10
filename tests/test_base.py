@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from seekrelay import ProviderUnavailableError, SearchQuery, SearXNGProvider, SeekRelay
+from seekrelay import ProviderTimeoutError, SearchQuery, SearXNGProvider, SeekRelay
 from seekrelay.errors import ResponseFormatError
 from seekrelay.providers import base
 
@@ -60,5 +60,29 @@ async def test_oversized_body_moves_on_to_the_next_provider(
 
 
 async def test_body_sent_slowly_cannot_outlive_the_timeout() -> None:
-    with pytest.raises(ProviderUnavailableError, match=r"timed out after 0\.05s"):
+    with pytest.raises(ProviderTimeoutError, match=r"timed out after 0\.05s"):
         await provider(httpx.Response(200, stream=_Drip()), timeout=0.05).search(QUERY)
+
+
+@pytest.mark.parametrize(("cap", "peak"), [(2, 2), (None, 6)])
+async def test_requests_over_max_concurrency_wait_for_a_slot(cap: int | None, peak: int) -> None:
+    in_flight = highest = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal in_flight, highest
+        in_flight += 1
+        highest = max(highest, in_flight)
+        await asyncio.sleep(0.01)
+        in_flight -= 1
+        return httpx.Response(200, content=BODY)
+
+    searx = SearXNGProvider(
+        "https://s.example", client=Recorder(handler).client(), max_concurrency=cap
+    )
+    await asyncio.gather(*(searx.search(SearchQuery(f"q{i}")) for i in range(6)))
+    assert highest == peak
+
+
+def test_max_concurrency_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="max_concurrency"):
+        SearXNGProvider("https://s.example", max_concurrency=0)
