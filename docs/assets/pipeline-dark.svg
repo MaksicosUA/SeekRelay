@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 902" width="1280" height="902" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>SeekRelay request pipeline</title>
+<defs><filter id="s" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000066"/></filter><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6e7681"/></marker><marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2f81f7"/></marker><marker id="ay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d29922"/></marker><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e5534b"/></marker><marker id="ae" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2da44e"/></marker></defs>
+<rect x="0" y="0" width="1280" height="902" rx="20" fill="#0d1117"/>
+<g transform="translate(40,0)">
+<text x="0" y="52" font-size="26" font-weight="700" fill="#e6edf3">How a request flows through SeekRelay</text>
+<text x="0" y="80" font-size="15" fill="#9198a1">M1 → M10 is the happy path. Amber: a provider failed. Red: the call stops. Green: answered from the cache.</text>
+<text x="0" y="146" font-size="13" font-weight="700" letter-spacing="1.2" fill="#9198a1">BEFORE ANYTHING IS SENT</text>
+<g filter="url(#s)"><rect x="0.0" y="160" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="0.0" y="174" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="16.0" y="174" width="32" height="24" rx="12" fill="#2f81f722"/>
+<text x="32.0" y="191" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M1</text>
+<text x="58.0" y="192" font-size="17" font-weight="650" fill="#e6edf3">Request</text>
+<text x="16.0" y="224" font-size="14" fill="#9198a1">Your app or agent calls</text>
+<text x="16.0" y="244" font-size="14" fill="#9198a1">search() or extract().</text>
+<g filter="url(#s)"><rect x="247.5" y="160" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="247.5" y="174" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="263.5" y="174" width="32" height="24" rx="12" fill="#2f81f722"/>
+<text x="279.5" y="191" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M2</text>
+<text x="305.5" y="192" font-size="17" font-weight="650" fill="#e6edf3">Validate</text>
+<text x="263.5" y="224" font-size="14" fill="#9198a1">The query is normalised and</text>
+<text x="263.5" y="244" font-size="14" fill="#9198a1">every argument is checked.</text>
+<g filter="url(#s)"><rect x="495.0" y="160" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="495.0" y="174" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="511.0" y="174" width="32" height="24" rx="12" fill="#2f81f722"/>
+<text x="527.0" y="191" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M3</text>
+<text x="553.0" y="192" font-size="17" font-weight="650" fill="#e6edf3">PII guard</text>
+<text x="511.0" y="224" font-size="14" fill="#9198a1">E-mails, card numbers,</text>
+<text x="511.0" y="244" font-size="14" fill="#9198a1">IBANs and secrets never</text>
+<text x="511.0" y="264" font-size="14" fill="#9198a1">leave the process.</text>
+<g filter="url(#s)"><rect x="742.5" y="160" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="742.5" y="174" width="4" height="110" rx="2" fill="#2da44e"/>
+<rect x="758.5" y="174" width="32" height="24" rx="12" fill="#2da44e22"/>
+<text x="774.5" y="191" font-size="13" font-weight="700" text-anchor="middle" fill="#2da44e">M4</text>
+<text x="800.5" y="192" font-size="17" font-weight="650" fill="#e6edf3">Cache</text>
+<text x="758.5" y="224" font-size="14" fill="#9198a1">The same query within 10</text>
+<text x="758.5" y="244" font-size="14" fill="#9198a1">minutes is answered from</text>
+<text x="758.5" y="264" font-size="14" fill="#9198a1">memory, for free.</text>
+<g filter="url(#s)"><rect x="990.0" y="160" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="990.0" y="174" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="1006.0" y="174" width="32" height="24" rx="12" fill="#2f81f722"/>
+<text x="1022.0" y="191" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M5</text>
+<text x="1048.0" y="192" font-size="17" font-weight="650" fill="#e6edf3">Rate limit</text>
+<text x="1006.0" y="224" font-size="14" fill="#9198a1">An optional calls-per-</text>
+<text x="1006.0" y="244" font-size="14" fill="#9198a1">minute cap stops a looping</text>
+<text x="1006.0" y="264" font-size="14" fill="#9198a1">agent.</text>
+<path d="M212.0,229.0 L243.5,229.0" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M459.5,229.0 L491.0,229.0" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M707.0,229.0 L738.5,229.0" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M954.5,229.0 L986.0,229.0" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M352.5,300 L352.5,321" fill="none" stroke="#e5534b" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="291.1" y="324" width="122.8" height="30" rx="15" fill="#e5534b1f" stroke="#e5534b"/>
+<text x="352.5" y="344" font-size="13.5" font-weight="600" text-anchor="middle" fill="#e5534b">Invalid input</text>
+<path d="M600.0,300 L600.0,321" fill="none" stroke="#e5534b" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="515.8" y="324" width="168.4" height="30" rx="15" fill="#e5534b1f" stroke="#e5534b"/>
+<text x="600.0" y="344" font-size="13.5" font-weight="600" text-anchor="middle" fill="#e5534b">Personal data found</text>
+<path d="M1095.0,300 L1095.0,321" fill="none" stroke="#e5534b" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="1029.8" y="324" width="130.39999999999998" height="30" rx="15" fill="#e5534b1f" stroke="#e5534b"/>
+<text x="1095.0" y="344" font-size="13.5" font-weight="600" text-anchor="middle" fill="#e5534b">Over the limit</text>
+<rect x="-14" y="386" width="1228" height="486" rx="18" fill="none" stroke="#3d444d" stroke-dasharray="7 7"/>
+<text x="121.0" y="416" font-size="13" font-weight="700" letter-spacing="1.2" fill="#9198a1">TALKING TO PROVIDERS</text>
+<rect x="321.0" y="397" width="305.2" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="473.6" y="417" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">Time budget · 30 s for the whole call</text>
+<path d="M1174.0,300 L1174.0,364 L105.0,364 L105.0,448" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M922.5,300 L922.5,338 L1012.0,338 L1012.0,448" fill="none" stroke="#2da44e" stroke-width="2" stroke-dasharray="6 6" stroke-linejoin="round" marker-end="url(#ae)"/>
+<text x="934.5" y="330" font-size="13" font-weight="600" fill="#2da44e">cache hit</text>
+<g filter="url(#s)"><rect x="0.0" y="452" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="0.0" y="466" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="16.0" y="466" width="32" height="24" rx="12" fill="#2f81f722"/>
+<text x="32.0" y="483" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M6</text>
+<text x="58.0" y="484" font-size="17" font-weight="650" fill="#e6edf3">Pick provider</text>
+<text x="16.0" y="516" font-size="14" fill="#9198a1">Providers are tried in your</text>
+<text x="16.0" y="536" font-size="14" fill="#9198a1">order; paused ones are</text>
+<text x="16.0" y="556" font-size="14" fill="#9198a1">skipped.</text>
+<g filter="url(#s)"><rect x="247.5" y="452" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="247.5" y="466" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="263.5" y="466" width="32" height="24" rx="12" fill="#2f81f722"/>
+<text x="279.5" y="483" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M7</text>
+<text x="305.5" y="484" font-size="17" font-weight="650" fill="#e6edf3">Call provider</text>
+<text x="263.5" y="516" font-size="14" fill="#9198a1">At most 8 requests in</text>
+<text x="263.5" y="536" font-size="14" fill="#9198a1">flight, 20 s and 32 MiB per</text>
+<text x="263.5" y="556" font-size="14" fill="#9198a1">response.</text>
+<g filter="url(#s)"><rect x="495.0" y="452" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="495.0" y="466" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="511.0" y="466" width="32" height="24" rx="12" fill="#2f81f722"/>
+<text x="527.0" y="483" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M8</text>
+<text x="553.0" y="484" font-size="17" font-weight="650" fill="#e6edf3">Clean up</text>
+<text x="511.0" y="516" font-size="14" fill="#9198a1">Duplicate pages are</text>
+<text x="511.0" y="536" font-size="14" fill="#9198a1">dropped, domain filters</text>
+<text x="511.0" y="556" font-size="14" fill="#9198a1">applied.</text>
+<g filter="url(#s)"><rect x="742.5" y="452" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="742.5" y="466" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="758.5" y="466" width="32" height="24" rx="12" fill="#2f81f722"/>
+<text x="774.5" y="483" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M9</text>
+<text x="800.5" y="484" font-size="17" font-weight="650" fill="#e6edf3">Store</text>
+<text x="758.5" y="516" font-size="14" fill="#9198a1">Non-empty answers are</text>
+<text x="758.5" y="536" font-size="14" fill="#9198a1">cached for 10 minutes, 64</text>
+<text x="758.5" y="556" font-size="14" fill="#9198a1">MiB at most.</text>
+<g filter="url(#s)"><rect x="990.0" y="452" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="990.0" y="466" width="4" height="110" rx="2" fill="#2f81f7"/>
+<rect x="1006.0" y="466" width="41" height="24" rx="12" fill="#2f81f722"/>
+<text x="1026.5" y="483" font-size="13" font-weight="700" text-anchor="middle" fill="#2f81f7">M10</text>
+<text x="1057.0" y="484" font-size="17" font-weight="650" fill="#e6edf3">Response</text>
+<text x="1006.0" y="516" font-size="14" fill="#9198a1">Results with a fallback</text>
+<text x="1006.0" y="536" font-size="14" fill="#9198a1">history, and prompt-safe</text>
+<text x="1006.0" y="556" font-size="14" fill="#9198a1">text for the model.</text>
+<path d="M212.0,521.0 L243.5,521.0" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M459.5,521.0 L491.0,521.0" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M707.0,521.0 L738.5,521.0" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M954.5,521.0 L986.0,521.0" fill="none" stroke="#6e7681" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<g filter="url(#s)"><rect x="247.5" y="664" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="247.5" y="678" width="4" height="110" rx="2" fill="#d29922"/>
+<rect x="263.5" y="678" width="50" height="24" rx="12" fill="#d2992222"/>
+<text x="288.5" y="695" font-size="13" font-weight="700" text-anchor="middle" fill="#d29922">M7.1</text>
+<text x="323.5" y="696" font-size="17" font-weight="650" fill="#e6edf3">Retry</text>
+<text x="263.5" y="728" font-size="14" fill="#9198a1">Server error or a short</text>
+<text x="263.5" y="748" font-size="14" fill="#9198a1">rate limit: ask the same</text>
+<text x="263.5" y="768" font-size="14" fill="#9198a1">provider again.</text>
+<g filter="url(#s)"><rect x="0.0" y="664" width="210" height="138" rx="14" fill="#161b22" stroke="#30363d"/></g>
+<rect x="0.0" y="678" width="4" height="110" rx="2" fill="#d29922"/>
+<rect x="16.0" y="678" width="50" height="24" rx="12" fill="#d2992222"/>
+<text x="41.0" y="695" font-size="13" font-weight="700" text-anchor="middle" fill="#d29922">M7.2</text>
+<text x="76.0" y="696" font-size="17" font-weight="650" fill="#e6edf3">Fallback</text>
+<text x="16.0" y="728" font-size="14" fill="#9198a1">Quota, bad key or a hang:</text>
+<text x="16.0" y="748" font-size="14" fill="#9198a1">pause the provider, try the</text>
+<text x="16.0" y="768" font-size="14" fill="#9198a1">next one.</text>
+<path d="M382.5,592 L382.5,660" fill="none" stroke="#d29922" stroke-width="2" stroke-linejoin="round" marker-end="url(#ay)"/>
+<path d="M322.5,662 L322.5,594" fill="none" stroke="#d29922" stroke-width="2" stroke-linejoin="round" marker-end="url(#ay)"/>
+<path d="M269.5,592 L269.5,612 L180.0,612 L180.0,660" fill="none" stroke="#d29922" stroke-width="2" stroke-linejoin="round" marker-end="url(#ay)"/>
+<path d="M40.0,662 L40.0,594" fill="none" stroke="#d29922" stroke-width="2" stroke-linejoin="round" marker-end="url(#ay)"/>
+<text x="392.5" y="634" font-size="13" fill="#d29922">retryable</text>
+<text x="50.0" y="634" font-size="13" fill="#d29922">next</text>
+<path d="M105.0,804 L105.0,838 L263.5,838" fill="none" stroke="#e5534b" stroke-width="1.6" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="267.5" y="823" width="176.0" height="30" rx="15" fill="#e5534b1f" stroke="#e5534b"/>
+<text x="355.5" y="843" font-size="13.5" font-weight="600" text-anchor="middle" fill="#e5534b">All providers failed</text>
+<text x="115.0" y="830" font-size="13" fill="#e5534b">none left</text>
+<text x="515.0" y="690" font-size="14" font-weight="650" fill="#e6edf3">Each step reports itself:</text>
+<rect x="515.0" y="706" width="66.4" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="548.2" y="726" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">served</text>
+<rect x="589.4" y="706" width="59.0" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="618.9" y="726" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">retry</text>
+<rect x="656.4" y="706" width="73.80000000000001" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="693.3" y="726" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">failure</text>
+<rect x="738.2" y="706" width="81.2" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="778.8000000000001" y="726" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">cooldown</text>
+<rect x="827.4000000000001" y="706" width="81.2" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="868.0000000000001" y="726" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">fallback</text>
+<rect x="916.6000000000001" y="706" width="96.0" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="964.6000000000001" y="726" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">all_failed</text>
+<rect x="1020.6000000000001" y="706" width="73.80000000000001" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="1057.5000000000002" y="726" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">blocked</text>
+<rect x="515.0" y="744" width="125.60000000000001" height="30" rx="15" fill="#8957e51f" stroke="#8957e5"/>
+<text x="577.8" y="764" font-size="13.5" font-weight="600" text-anchor="middle" fill="#8957e5">limit_exceeded</text>
+<rect x="648.6" y="744" width="118.2" height="30" rx="15" fill="#e5534b1f" stroke="#e5534b"/>
+<text x="707.7" y="764" font-size="13.5" font-weight="600" text-anchor="middle" fill="#e5534b">provider_down</text>
+<rect x="774.8000000000001" y="744" width="103.4" height="30" rx="15" fill="#e5534b1f" stroke="#e5534b"/>
+<text x="826.5000000000001" y="764" font-size="13.5" font-weight="600" text-anchor="middle" fill="#e5534b">provider_up</text>
+<text x="515.0" y="802" font-size="14" fill="#9198a1">on_event(handler) gets each one; stats() and status() give counters and provider state.</text>
+<text x="515.0" y="824" font-size="14" fill="#9198a1">Nothing is stored, and no query, URL or key is ever in an event.</text>
+</g></svg>

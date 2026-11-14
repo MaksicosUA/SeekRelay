@@ -1,6 +1,9 @@
 # SeekRelay
 
 [![CI](https://github.com/MaksicosUA/SeekRelay/actions/workflows/ci.yml/badge.svg)](https://github.com/MaksicosUA/SeekRelay/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/seekrelay)](https://pypi.org/project/seekrelay/)
+[![Python](https://img.shields.io/pypi/pyversions/seekrelay)](https://pypi.org/project/seekrelay/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/MaksicosUA/SeekRelay/blob/main/LICENSE)
 
 One async Python interface for web search in AI agents and RAG pipelines, with
 **Tavily**, **Brave Search** and a self-hosted **SearXNG** behind it.
@@ -15,6 +18,17 @@ async with SeekRelay.from_env() as relay:
 
 If Tavily runs out of credits, the same call is served by Brave; if Brave is rate-limited,
 by your own SearXNG. Application code never changes.
+
+## How it works
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/MaksicosUA/SeekRelay/main/docs/assets/pipeline-dark.svg">
+  <img alt="SeekRelay request pipeline: validate, PII guard, cache and rate limit before anything is sent, then providers with retry and fallback within a 30-second budget, events at every step" src="https://raw.githubusercontent.com/MaksicosUA/SeekRelay/main/docs/assets/pipeline-light.svg">
+</picture>
+
+Nothing leaves the process until the query has passed the checks in the top row. Providers
+are then tried in your order: a passing error is retried, a lasting one sends the call to
+the next provider, and every step is reported to your code if you ask for it.
 
 ## Why
 
